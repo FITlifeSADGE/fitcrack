@@ -37,6 +37,7 @@ from src.api.fitcrack.endpoints.logs.logs import ns as logs_ns
 from src.api.fitcrack.endpoints.status.status import ns as status_ns
 from src.api.fitcrack.endpoints.pcfg.pcfg import ns as pcfg_ns
 from src.api.fitcrack.endpoints.settings.settings import ns as settings_ns
+from src.api.fitcrack.endpoints.rainbowTables.rainbow import ns as rainbow_ns
 
 from src.database import db
 
@@ -86,6 +87,7 @@ def initialize_app(flask_app):
     api.add_namespace(status_ns)
     api.add_namespace(pcfg_ns)
     api.add_namespace(settings_ns)
+    api.add_namespace(rainbow_ns)
 
     flask_app.register_blueprint(blueprint)
 
@@ -111,7 +113,8 @@ def check_valid_login():
 
 
 def main():
-    app.run(host='0.0.0.0', port=5000, threaded=False, debug=True)
+    app.run(host='0.0.0.0', port=5000, threaded=False)
+
 
 initialize_app(app)
 login_manager.init_app(app)
