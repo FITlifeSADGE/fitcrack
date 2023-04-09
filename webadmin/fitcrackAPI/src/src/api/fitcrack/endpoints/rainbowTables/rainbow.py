@@ -4,9 +4,21 @@ import random
 import string
 from src.api.fitcrack.endpoints.rainbowTables.parse import get_args
 from src.api.fitcrack.endpoints.rainbowTables.table import RainbowTable
-import src.api.fitcrack.endpoints.rainbowTables.data
+import src.api.fitcrack.endpoints.rainbowTables.data as data
 import pathlib
 
+import logging
+from flask import request, redirect, send_file
+from flask_restx import Resource, abort
+from sqlalchemy import exc
+
+from src.api.fitcrack.responseModels import simpleResponse, file_content
+from src.api.fitcrack.argumentsParser import path
+from src.database import db
+
+from src.api.fitcrack.endpoints.rainbowTables.parse import rainbowTables_estimateparser
+
+log = logging.getLogger(__name__)
 ns = api.namespace('rainbowTables', description='Endpoints for work with HcStats files.')
 
 def writeTofile(data, filename):
@@ -52,6 +64,14 @@ def estimate_gen_time(chain_len, chain_num, algorithm, charset, max_len):
         multiply_len = 1.45
     hashes_per_sec = 300000
     return((chain_len * chain_num * multiply_char * multiply_alg * multiply_len) / hashes_per_sec)
+
+@ns.route('/estimate')
+class Estimate(Resource):
+    @api.marshal_with(simpleResponse)
+    @api.expect(rainbowTables_estimateparser)
+    def get(self):
+        args = rainbowTables_estimateparser.parse_args(request)
+        return {"time": estimate_gen_time(args['chain_len'], args['chain_num'], args['algorithm'], args['charset'], args['max_len'])}
 
 # Check if given arguments are valid
 def check_args_gen(args):
@@ -248,55 +268,53 @@ def get_reduction_func(input: str, lower: int, upper: int):
         exit(1)
     
     
-args = get_args()
-if args.mode == "crack":
-    plaintext = data.search_password(args.hash) # Search for password in database
+def crack(hash, table, path):
+    plaintext = data.search_password(hash) # Search for password in database
     if plaintext:
         print("Password found in database: {0}".format(plaintext[0]))
         exit(0)
     try: 
-        int(args.hash, 16)
+        int(hash, 16)
     except:
         print("Hash is not in hexadecimal format")
         exit(1)
     table = RainbowTable(hashlib.md5, 10, reduce_lower(5, 10), gen_lower(5), "md5", "lowercase", 5, 6) # Create empty table
-    if not args.path.endswith("/"): # Add / to path if not present
-        args.path += "/"
-    table.load_from_cvs(filename= args.path + args.table) # Load table from file
+    if not path.endswith("/"): # Add / to path if not present
+        path += "/"
+    table.load_from_cvs(filename= path + table) # Load table from file
     hashing_alg = get_hashing_alg(table.table['alg'])
     reduction_func, _, _ = get_reduction_func(table.table['rest'], int(table.table['len']), int(table.table['len_max']))
     table.hash_func = hashing_alg
     table.chain_len = int(table.table['chain_len'])
     table.reduction_func = reduction_func
-    result = table.crack(args.hash)
+    result = table.crack(hash)
     
-    id = data.get_table_id(args.table) # Get id of table for later update of values
+    id = data.get_table_id(table) # Get id of table for later update of values
     
     if result is not None:
         #clear()
         print("Succes, the password is {0}".format(result))
         data.update_table(True, id)
-        data.add_password_to_database(args.hash, result)
+        data.add_password_to_database(hash, result)
     else:
         #clear()
         print("Password not found")
         data.update_table(False, id) 
     
-elif args.mode == "gen":
-    check_args_gen(args)
-    if args.length_min < 5:
+def gen(length_min, length_max, restrictions, algorithm, columns, rows, filename):
+    if length_min < 5:
         print("Minimum length of less than 5 results in many collisions, which can cause the table to be unusable")
         print("do you wish to continue? (y/n)")
         inp = input()
         if inp != "y":
             exit(1)
-    hashing_alg = get_hashing_alg(args.algorithm)
-    reduction_func, gen_func, charset = get_reduction_func(args.restrictions, args.length_min, args.length_max)
+    hashing_alg = get_hashing_alg(algorithm)
+    reduction_func, gen_func, charset = get_reduction_func(restrictions, length_min, length_max)
     
-    table = RainbowTable(hashing_alg, args.columns, reduction_func, gen_func, args.algorithm, args.restrictions, args.length_min, args.length_max)
-    if args.filename[-4:] != ".csv": # Add .csv to filename if not present
-        args.filename += ".csv"
-    estimate = estimate_gen_time(args.rows, args.columns, args.algorithm, len(charset), args.length_max)
+    table = RainbowTable(hashing_alg, columns, reduction_func, gen_func, algorithm, restrictions, length_min, length_max)
+    if filename[-4:] != ".csv": # Add .csv to filename if not present
+        filename += ".csv"
+    estimate = estimate_gen_time(rows, columns, algorithm, len(charset), length_max)
     print("Estimated time to generate table assuming average CPU : {0} mins, {1} seconds".format(int(estimate/60), int(estimate % 60)))
     print("Do you wish to continue? (y/n)")
     inp = input()
@@ -308,20 +326,19 @@ elif args.mode == "gen":
     else: 
         print("Invalid input, exiting...")
         exit(0)
-    table.gen_table(rows=args.rows, file=args.filename)
+    table.gen_table(rows=rows, file=filename)
     
-    data.add_table_to_database(table, args.filename)
+    data.add_table_to_database(table, filename)
     
     print("""rainbow table {3} parameters:
           hash algorithm:   {0}
           charset name:     {1}
           charset length:   {2}
           charset data:     {4}
-        """.format(args.algorithm, args.restrictions, len(charset), args.filename, charset))
+        """.format(algorithm, restrictions, len(charset), filename, charset))
     
-elif args.mode == "search":
-    check_args_search(args)
-    res = data.get_tables(args.algorithm, args.restrictions, args.length_min, args.length_max)
+def search(algorithm, restrictions, length_min, length_max):
+    res = data.get_tables(algorithm, restrictions, length_min, length_max)
     print("Found {0} tables".format(len(res)))
     for table in res:
         print("""
@@ -332,27 +349,27 @@ elif args.mode == "search":
               ID:                       {5}""".format(table[0], table[1], table[2], table[4], table[5], table[3]))
         print("Select a table using load path ID")
     
-elif args.mode == "load":
-    name = data.fetch_table(args.ID)
-    if not name: # Check if table exists
-        print("No table with this ID")
-        exit(1)
-    if not pathlib.Path(args.path).exists(): # Check if path exists
-        print("Path does not exist")
-        exit(0)
-    path = args.path + "/" + name[0][1] # Create path to file
-    if pathlib.Path(path).is_file():
-        print("File already exists, are you sure you want to rewrite it? (y/n)")
-        inp = input()
-        if inp == "y":
-            writeTofile(name[0][0], path)
-        elif inp == "n":
-            print("Exiting...")
-            exit(0)
-        else: 
-            print("Invalid input, exiting...")
-            exit(0)
-    else:
-        print("Downloading file...")
-        writeTofile(name[0][0], path)
-        print("Done")
+# elif args.mode == "load":
+#     name = data.fetch_table(args.ID)
+#     if not name: # Check if table exists
+#         print("No table with this ID")
+#         exit(1)
+#     if not pathlib.Path(args.path).exists(): # Check if path exists
+#         print("Path does not exist")
+#         exit(0)
+#     path = args.path + "/" + name[0][1] # Create path to file
+#     if pathlib.Path(path).is_file():
+#         print("File already exists, are you sure you want to rewrite it? (y/n)")
+#         inp = input()
+#         if inp == "y":
+#             writeTofile(name[0][0], path)
+#         elif inp == "n":
+#             print("Exiting...")
+#             exit(0)
+#         else: 
+#             print("Invalid input, exiting...")
+#             exit(0)
+#     else:
+#         print("Downloading file...")
+#         writeTofile(name[0][0], path)
+#         print("Done")

@@ -1,6 +1,17 @@
 import argparse
 import sys
 
+from src.api.fitcrack.argumentsParser import pagination
+from flask_restx import reqparse
+
+rainbowTables_estimateparser = reqparse.RequestParser()
+rainbowTables_estimateparser.add_argument('chain_len', type=int, required=True)
+rainbowTables_estimateparser.add_argument('chain_num', type=int, required=True)
+rainbowTables_estimateparser.add_argument('algorithm', type=object, required=True)
+rainbowTables_estimateparser.add_argument('charset', type=object, required=True)
+rainbowTables_estimateparser.add_argument('max_len', type=int, required=True)
+
+
 def get_args():
     parser = argparse.ArgumentParser(description='Supported modes - crack, gen, search, load. For more details enter crack -h, gen -h,search -h or load-h', add_help=False )
     parser.add_argument('mode', metavar='mode', type=str, choices=['crack', 'gen', 'search', 'load'], help='Select a function - crack/gen/search')

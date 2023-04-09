@@ -1,6 +1,5 @@
 import time
 import csv
-from tqdm import tqdm
 from os import system, name
 import pathlib
 
@@ -27,7 +26,7 @@ class RainbowTable:
     def gen_table(self, file="table.csv", rows=1000):
         print("Generating table...")
         startTime = time.time()
-        for i in tqdm(range(rows)):
+        for i in range(rows):
             start = self.gen_func()
             plainText = start
             for col in range(self.chain_len):
@@ -67,7 +66,7 @@ class RainbowTable:
             traversalResult = self.recreate_chain(hashedPassword, self.table[hashedPassword])
             if traversalResult:
                 return traversalResult
-        for startCol in tqdm(range(self.chain_len-1, -1, -1)):
+        for startCol in range(self.chain_len-1, -1, -1):
             candidate = hashedPassword
             for col in range(startCol, self.chain_len):
                 candidate = self.hash_func(self.reduction_func(candidate, col-1).encode('utf-8')).hexdigest()
