@@ -1,13 +1,27 @@
 import sqlite3
 from src.api.fitcrack.endpoints.rainbowTables import table
+from settings import RT_DIR
+import os
+import pathlib
 
-con = sqlite3.connect('/usr/share/collections/RTables/tables.db')
+if not pathlib.Path(RT_DIR).exists():
+        pathlib.Path(RT_DIR).mkdir(parents=True, exist_ok=True)
+        
+if not pathlib.Path(os.path.join(RT_DIR, 'tables.db')).exists():
+    with open(os.path.join(RT_DIR, 'tables.db'), encoding='latin-1', mode='w+') as file:
+        file.write('')
+        file.close()
+
+os.system("chmod 664 " + os.path.join(RT_DIR, 'tables.db'))
+os.system("chown apache:apache " + os.path.join(RT_DIR, 'tables.db'))
+
+con = sqlite3.connect(os.path.join(RT_DIR, 'tables.db'), check_same_thread=False)
 cur = con.cursor()
 
 
 def convertToBinaryData(filename):
     # Convert digital data to binary format
-    with open("/usr/share/collections/RTables/" + filename, 'rb') as file:
+    with open(os.path.join(RT_DIR, filename), 'rb') as file:
         blobData = file.read()
     return blobData
 
@@ -72,3 +86,6 @@ def search_password(hash: str):
     cur.execute("SELECT plaintext FROM Password WHERE hash = ?", (hash,))
     return cur.fetchone()
     
+def check_name(name: str):
+    cur.execute("SELECT name FROM RainbowTable WHERE name = ?", (name,))
+    return cur.fetchone()

@@ -22,7 +22,6 @@
               </v-expansion-panel-header>
               <v-expansion-panel-content>
                 <v-card-text>
-                  <!-- přidat v-mode pro všechny tyhle, což budou potom hodnoty, který se zadají funkci getEstimate -->
                   <v-text-field :loading="loading" outlined type="number" label="Min plaintext len" min="1" max="30"
                     hint="Select the minimum length of plaintexts" persistent-hint suffix="characters" class="mb-4"
                     value="5" v-model="MinPlaintextLen" />
@@ -87,17 +86,23 @@
                         <div>
                           <v-text-field v-model="filename" outlined autofocus required label="Filename"
                             hint="Give this rainbow table a descriptive name" persistent-hint />
-                          <v-btn class="d-inline-block" color="primary" text outlined :disabled="!filename" 
-                          @click="genRainbowTable(MinPlaintextLen, MaxPlaintextLen, charsetType, hashType, ColumnCount, RowCount, filename)">
+                          <v-btn class="d-inline-block" color="primary" text outlined :disabled="!filename"
+                            @click="genRainbowTable(MinPlaintextLen, MaxPlaintextLen, charsetType, hashType, ColumnCount, RowCount, filename)">
                             Confirm and generate
                           </v-btn>
+                          <a :href="$serverAddr + '/rainbowTables/download/' + filename + '.csv'" target="_blank"
+                            download>
+                            <v-btn class="d-inline-block" color="primary" text outlined :disabled="!generated">
+                              Download
+                            </v-btn>
+                          </a>
                         </div>
                       </v-card-text>
                       <v-card-text v-else>
-                      Please fill all the fields.
-                    </v-card-text>
-                  </v-card>
-                </v-dialog>
+                        Please fill all the fields.
+                      </v-card-text>
+                    </v-card>
+                  </v-dialog>
                 </v-card-text>
               </v-expansion-panel-content>
             </v-expansion-panel>
@@ -207,7 +212,6 @@ import { mapState, mapGetters, mapMutations } from 'vuex'
 import { mapTwoWayState } from 'spyfu-vuex-helpers'
 import { twoWayMap } from '@/store'
 import tile from '@/components/tile/fc_tile.vue'
-//import rainbow from 'fitcrackAPI/src/src/fitcrack/endpoints/rainbowTables'
 
 
 export default {
@@ -228,7 +232,7 @@ export default {
       charsetTypes: [{ name: 'LOWERCASE', characters: 'abcdefghijklmnopqrstuvwxyz' }, { name: 'UPPERCASE', characters: 'abcdefghijklmnopqrstuvwxyz'.toUpperCase() },
       { name: 'LETTERS', characters: 'abcdefghijklmnopqrstuvwxyz' + 'abcdefghijklmnopqrstuvwxyz'.toUpperCase() },
       { name: 'ALPHANUMERIC', characters: 'abcdefghijklmnopqrstuvwxyz' + 'abcdefghijklmnopqrstuvwxyz'.toUpperCase() + '0123456789' },
-      { name: 'ALL CHARACTERS ', characters: '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\]^_`{|}~' }],
+      { name: 'ALL ', characters: '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\]^_`{|}~' }],
       headers: [
         { text: 'Name', align: 'start', value: 'name' },
         { text: 'Charset range', value: 'number', align: 'end' },
@@ -254,6 +258,7 @@ export default {
       hash_input: true,
       message: '',
       filename: '',
+      generated: false,
       wutthresh: 180, // minimum reccomended seconds per WU
       confirmpurge: !localStorage.hasOwnProperty('confirmpurge') || localStorage.getItem('confirmpurge') == 'true',
       showContent: false,
@@ -290,6 +295,11 @@ export default {
     this.startDate = this.$moment().format('YYYY-MM-DDTHH:mm')
     this.endDate = this.$moment().format('YYYY-MM-DDTHH:mm')
     this.fetchTemplates()
+  },
+  watch: {
+    filename(newValue) {
+      this.generated = false;
+    }
   },
   methods: {
     ...mapMutations('jobForm', ['applyTemplate']),
@@ -358,6 +368,7 @@ export default {
       })
     },
     genRainbowTable: function (length_min, length_max, restrictions, algorithm, columns, rows, filename) {
+      this.generated = false
       this.loading = true
       this.axios.post(this.$serverAddr + '/rainbowTables/generate', {
         "length_min": length_min,
@@ -369,6 +380,7 @@ export default {
         "filename": filename
       }).then((response) => {
         this.loading = false
+        this.generated = response.data['status']
         //this.loadRainbowTables()
       })
     },

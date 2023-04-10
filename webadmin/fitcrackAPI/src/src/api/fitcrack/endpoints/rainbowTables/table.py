@@ -2,6 +2,8 @@ import time
 import csv
 from os import system, name
 import pathlib
+from settings import RT_DIR
+import os
 
 CSV_FIELDNAMES = ['start_point', 'endpoint_hash']
 
@@ -24,8 +26,6 @@ class RainbowTable:
         self.len_max = length_max
         
     def gen_table(self, file="table.csv", rows=1000):
-        print("Generating table...")
-        startTime = time.time()
         for i in range(rows):
             start = self.gen_func()
             plainText = start
@@ -35,22 +35,19 @@ class RainbowTable:
             self.table[hashcode] = start
             
         self.table['chain_len'] = self.chain_len
-        self.table['alg'] = self.alg
-        self.table['rest'] = self.rest
+        self.table['alg'] = self.alg.lower()
+        self.table['rest'] = self.rest.lower()
         self.table['len'] = self.len
         self.table['len_max'] = self.len_max
         
-        if not pathlib.Path("/usr/share/collections/RTables/").exists():
-            pathlib.Path("/usr/share/collections/RTables/").mkdir(parents=True, exist_ok=True)
-        with open("/usr/share/collections/RTables/"+file, 'w') as table:
+        if not pathlib.Path(RT_DIR).exists():
+            pathlib.Path(RT_DIR).mkdir(parents=True, exist_ok=True)
+        with open(os.path.join(RT_DIR, file), 'w') as table:
             writer = csv.DictWriter(table, fieldnames=CSV_FIELDNAMES) 
             writer.writeheader()
             for k, v in self.table.items():
                 writer.writerow({CSV_FIELDNAMES[0]: v, CSV_FIELDNAMES[1]: k})
-        
-        elapsed = time.time() - startTime
-        print("Done generating in {0} seconds.".format(elapsed), flush=True)
-                
+                              
     def recreate_chain(self, hashedPassword, start):
         for col in range(self.chain_len):
             hash = self.hash_func(start.encode('utf-8')).hexdigest()

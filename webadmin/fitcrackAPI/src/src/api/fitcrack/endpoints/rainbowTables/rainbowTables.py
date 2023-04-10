@@ -3,7 +3,7 @@ import hashlib
 import random
 import string
 from src.api.fitcrack.endpoints.rainbowTables.table import RainbowTable
-#import src.api.fitcrack.endpoints.rainbowTables.data as data
+import src.api.fitcrack.endpoints.rainbowTables.data as data
 import pathlib
 
 import logging
@@ -12,10 +12,9 @@ from flask_restx import Resource, abort
 from sqlalchemy import exc
 
 from src.api.fitcrack.responseModels import simpleResponse, file_content
-from src.api.fitcrack.argumentsParser import path
-from src.database import db
+from settings import RT_DIR
 
-from src.api.fitcrack.endpoints.rainbowTables.argumentsParser import rainbowTables_estimateparser
+from src.api.fitcrack.endpoints.rainbowTables.argumentsParser import rainbowTables_estimateparser, rainbowTables_generateparser
 from src.api.fitcrack.endpoints.rainbowTables.responseModels import estimate_model
 
 from src.api.fitcrack.responseModels import simpleResponse, file_content
@@ -80,43 +79,6 @@ class Estimate(Resource):
         return {"time": time}, 200
 
 # Check if given arguments are valid
-def check_args_gen(args):
-    if args.length_max < 1:
-        print("Length must be greater than 0")
-        exit(1)
-    if args.length_min < 1:
-        print("Length must be greater than 0")
-        exit(1)
-    if args.length_max > 30:
-        print("Plaintext length is capped at 30")
-        exit(1)
-    if args.length_min > 30:
-        print("Plaintext length is capped at 30")
-    if args.columns < 1:
-        print("Number of columns must be greater than 0")
-        exit(1)
-    if args.rows < 1:
-        print("Number of rows must be greater than 0")
-        exit(1)
-    if args.length_min > args.length_max:
-        print("Minimum length must be less or equal to maximum length")
-        exit(1)
-        
-def check_args_search(args):
-    if args.length_max < 1:
-        print("Length must be greater than 0")
-        exit(1)
-    if args.length_min < 1:
-        print("Length must be greater than 0")
-        exit(1)
-    if args.length_max > 30:
-        print("Plaintext length is capped at 30")
-        exit(1)
-    if args.length_min > 30:
-        print("Plaintext length is capped at 30")
-    if args.length_min > args.length_max:
-        print("Minimum length must be less or equal to maximum length")
-        exit(1)
 
 # Word generator functions
 def gen_lower(n):
@@ -229,25 +191,14 @@ def reduce_alphanumeric(lower, upper):
         return plaintext
     return result
 
-def reduce_all(lower, upper):
-    def result(hash, col):
-        plaintextKey = (int(hash, 16) ^ col) % (110 ** lower)
-        plaintext = ""
-        diff = upper - lower
-        rang = plaintextKey % (diff + 1) + lower
-        for _ in range(rang):
-            plaintext += (string.printable + string.digits)[plaintextKey % 110]
-            plaintextKey //= 110
-        return plaintext
-    return result
-
 # Select hashing algorithm
 def get_hashing_alg(input: str):
+    input = input.lower()
     if input == 'md5':
         return hashlib.md5
     elif input == 'sha1':
         return hashlib.sha1
-    elif input == 'sha256':
+    elif input == 'sha2-256':
         return hashlib.sha256
     elif input == 'sha512':
         return hashlib.sha512
@@ -257,18 +208,18 @@ def get_hashing_alg(input: str):
 
 # Select reduction function
 def get_reduction_func(input: str, lower: int, upper: int):
+    input = input.lower()
+    
     if input == 'lowercase':
         return reduce_lower(lower, upper), gen_lower(lower), string.ascii_lowercase
     elif input == 'uppercase':
         return reduce_upper(lower, upper), gen_upper(lower), string.ascii_uppercase
     elif input == 'letters':
         return reduce_letters(lower, upper), gen_letters(lower), string.ascii_letters
-    elif input == 'special':
-        return reduce_special_chars(lower, upper), gen_special_chars(lower), string.printable
-    elif input == 'alphanum':
-        return reduce_alphanumeric(lower, upper), gen_alphanumeric(lower), string.ascii_letters + string.digits
     elif input == 'all':
-        return reduce_all(lower, upper), gen_all(lower), string.printable + string.digits
+        return reduce_special_chars(lower, upper), gen_special_chars(lower), string.printable
+    elif input == 'alphanumeric':
+        return reduce_alphanumeric(lower, upper), gen_alphanumeric(lower), string.ascii_letters + string.digits
     else:
         print("This reduction function is not supported")
         exit(1)
@@ -307,42 +258,30 @@ def get_reduction_func(input: str, lower: int, upper: int):
 #         print("Password not found")
 #         data.update_table(False, id) 
     
-# def gen(length_min, length_max, restrictions, algorithm, columns, rows, filename):
-#     if length_min < 5:
-#         print("Minimum length of less than 5 results in many collisions, which can cause the table to be unusable")
-#         print("do you wish to continue? (y/n)")
-#         inp = input()
-#         if inp != "y":
-#             exit(1)
-#     hashing_alg = get_hashing_alg(algorithm)
-#     reduction_func, gen_func, charset = get_reduction_func(restrictions, length_min, length_max)
+def gen(length_min, length_max, restrictions, algorithm, columns, rows, filename):
+    hashing_alg = get_hashing_alg(algorithm)
+    restrictions = restrictions.strip()
+    reduction_func, gen_func, charset = get_reduction_func(restrictions, length_min, length_max)
     
-#     table = RainbowTable(hashing_alg, columns, reduction_func, gen_func, algorithm, restrictions, length_min, length_max)
-#     if filename[-4:] != ".csv": # Add .csv to filename if not present
-#         filename += ".csv"
-#     estimate = estimate_gen_time(rows, columns, algorithm, len(charset), length_max)
-#     print("Estimated time to generate table assuming average CPU : {0} mins, {1} seconds".format(int(estimate/60), int(estimate % 60)))
-#     print("Do you wish to continue? (y/n)")
-#     inp = input()
-#     if inp == "n":
-#         print("Exiting...")
-#         exit(0)
-#     elif inp == "y":
-#         pass
-#     else: 
-#         print("Invalid input, exiting...")
-#         exit(0)
-#     table.gen_table(rows=rows, file=filename)
+    table = RainbowTable(hashing_alg, columns, reduction_func, gen_func, algorithm, restrictions, length_min, length_max)
+    if filename[-4:] != ".csv": # Add .csv to filename if not present
+        filename += ".csv"
+    if data.check_name(filename):
+       return {'message': 'Table name already exists', 'status': False}, 400
+    table.gen_table(rows=rows, file=filename)
     
-#     data.add_table_to_database(table, filename)
+    data.add_table_to_database(table, filename)
+    return {'message': 'Table generated', 'status': True}, 200
     
-#     print("""rainbow table {3} parameters:
-#           hash algorithm:   {0}
-#           charset name:     {1}
-#           charset length:   {2}
-#           charset data:     {4}
-#         """.format(algorithm, restrictions, len(charset), filename, charset))
-    
+@ns.route('/generate')
+class Generate(Resource):
+    @api.marshal_with(simpleResponse)
+    @api.expect(rainbowTables_generateparser)
+    def post(self):
+        args = rainbowTables_generateparser.parse_args(request)
+        final = gen(args['length_min'], args['length_max'], args['restrictions'], args['algorithm'], args['columns'], args['rows'], args['filename'])
+        return final
+        
 # def search(algorithm, restrictions, length_min, length_max):
 #     res = data.get_tables(algorithm, restrictions, length_min, length_max)
 #     print("Found {0} tables".format(len(res)))
@@ -379,3 +318,9 @@ def get_reduction_func(input: str, lower: int, upper: int):
 #         print("Downloading file...")
 #         writeTofile(name[0][0], path)
 #         print("Done")
+@ns.route('/download/<filename>')
+class Download(Resource):
+    def get(self, filename):
+        if not data.check_name(filename):
+            return {'message': 'Table does not exist', 'status': False}, 400
+        return send_file(RT_DIR + '/' + filename, as_attachment=True)

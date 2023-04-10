@@ -11,6 +11,14 @@ rainbowTables_estimateparser.add_argument('algorithm', type=str, required=True)
 rainbowTables_estimateparser.add_argument('charset', type=str, required=True)
 rainbowTables_estimateparser.add_argument('max_len', type=int, required=True)
 
+rainbowTables_generateparser = reqparse.RequestParser()
+rainbowTables_generateparser.add_argument('length_min', type=int, required=True)
+rainbowTables_generateparser.add_argument('length_max', type=int, required=True)
+rainbowTables_generateparser.add_argument('restrictions', type=str, required=True)
+rainbowTables_generateparser.add_argument('algorithm', type=str, required=True)
+rainbowTables_generateparser.add_argument('columns', type=int, required=True)
+rainbowTables_generateparser.add_argument('rows', type=int, required=True)
+rainbowTables_generateparser.add_argument('filename', type=str, required=True)
 
 # def get_args():
 #     parser = argparse.ArgumentParser(description='Supported modes - crack, gen, search, load. For more details enter crack -h, gen -h,search -h or load-h', add_help=False )
