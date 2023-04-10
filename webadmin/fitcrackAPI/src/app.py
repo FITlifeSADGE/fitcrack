@@ -37,7 +37,7 @@ from src.api.fitcrack.endpoints.logs.logs import ns as logs_ns
 from src.api.fitcrack.endpoints.status.status import ns as status_ns
 from src.api.fitcrack.endpoints.pcfg.pcfg import ns as pcfg_ns
 from src.api.fitcrack.endpoints.settings.settings import ns as settings_ns
-from src.api.fitcrack.endpoints.rainbowTables.rainbow import ns as rainbow_ns
+from src.api.fitcrack.endpoints.rainbowTables.rainbowTables import ns as rainbow_ns
 
 from src.database import db
 

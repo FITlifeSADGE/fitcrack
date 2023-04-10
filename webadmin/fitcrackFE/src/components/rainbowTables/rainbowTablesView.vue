@@ -74,29 +74,30 @@
                       </v-card-text>
                     </v-card>
                   </v-dialog>
-                  <!-- <v-dialog v-model="dialog" class="text-right pa-3">
+                  <v-dialog v-model="generating" class="text-right pa-3">
                     <template v-slot:activator="{ on }">
-                      <v-btn v-on="on" class="d-inline-block" color="primary" outlined @click="getEstimate(ColumnCount, RowCount, hashType, charsetType, MaxPlaintextLen)">
+                      <v-btn v-on="on" class="d-inline-block" color="primary" outlined
+                        @click="getEstimate(ColumnCount, RowCount, hashType, charsetType, MaxPlaintextLen)">
                         Generate
                       </v-btn>
                     </template>
                     <v-card>
-                      <v-card-text>
-                        Estimated time to generate rainbow table: {{ estimate }}
+                      <v-card-text v-if="hash_input">
+                        <b style="font-size: 15px; margin-bottom: 20px;">{{ message }}</b>
+                        <div>
+                          <v-text-field v-model="filename" outlined autofocus required label="Filename"
+                            hint="Give this rainbow table a descriptive name" persistent-hint />
+                          <v-btn class="d-inline-block" color="primary" text outlined :disabled="!filename" 
+                          @click="genRainbowTable(MinPlaintextLen, MaxPlaintextLen, charsetType, hashType, ColumnCount, RowCount, filename)">
+                            Confirm and generate
+                          </v-btn>
+                        </div>
                       </v-card-text>
-                    </v-card>
-                  </v-dialog> -->
-                  <v-btn class="d-inline-block" color="primary" outlined
-                    @click="getEstimate(ColumnCount, RowCount, hashType, charsetType, MaxPlaintextLen)"
-                  @click.native.stop="generating = true">
-                  Generate
-                  </v-btn>
-                <v-dialog v-model="generating" max-width="500">
-                    Estimated time to generate rainbow table: {{ estimate }}
+                      <v-card-text v-else>
+                      Please fill all the fields.
+                    </v-card-text>
+                  </v-card>
                 </v-dialog>
-                  <!-- <v-btn class="d-inline-block" color="primary" outlined @click="getEstimate(MinPlaintextLen, MinPlaintextLen, 'md5', 'lowercase', 10)">
-                        Generate
-                      </v-btn> -->
                 </v-card-text>
               </v-expansion-panel-content>
             </v-expansion-panel>
@@ -158,7 +159,7 @@
                   </v-dialog>
 
                   <v-data-table :headers="headers" :items="rainbowTables.items" :loading="loading"
-                    :footer-props="{ itemsPerPageOptions: [10, 25, 50], itemsPerPageText: 'Hcstats per page' }">
+                    :footer-props="{ itemsPerPageOptions: [10, 25, 50], itemsPerPageText: 'Rainbow tables per page' }">
                     <template v-slot:item.time="{ item }">
                       {{ $moment.utc(item.time).local().format('DD.MM.YYYY HH:mm') }}
                     </template>
@@ -250,6 +251,9 @@ export default {
       RowCount: 1000,
       ColumnCount: 1000,
       generating: false,
+      hash_input: true,
+      message: '',
+      filename: '',
       wutthresh: 180, // minimum reccomended seconds per WU
       confirmpurge: !localStorage.hasOwnProperty('confirmpurge') || localStorage.getItem('confirmpurge') == 'true',
       showContent: false,
@@ -333,19 +337,40 @@ export default {
         this.hashTypes = response.data.hashtypes
         this.removeUnsupportedHashTypes()
       })
-      console.log(this.$serverAddr)
     },
+
     getEstimate: function (chain_len, chain_num, algorithm, charset, max_len) {
-      this.axios.get(this.$serverAddr + '/rainbowTables/estimate', {
+      if (algorithm == null || charset == null) {
+        this.hash_input = false
+        return
+      }
+      this.hash_input = true
+      console.log(chain_len, chain_num, algorithm['name'], charset['name'], max_len)
+      this.axios.post(this.$serverAddr + '/rainbowTables/estimate', {
         "chain_len": chain_len,
         "chain_num": chain_num,
-        "algorithm": algorithm,
-        "charset": charset,
+        "algorithm": algorithm['name'],
+        "charset": charset['name'],
         "max_len": max_len
       }).then((response) => {
-        this.estimate = response.data
+        this.estimate = response.data['time']
+        this.message = 'Estimated time to complete: ' + Math.floor(this.estimate / 60) + ' minutes and ' + (this.estimate % 60) + ' seconds'
       })
-      console.log(chain_len, chain_num, algorithm, charset, max_len)
+    },
+    genRainbowTable: function (length_min, length_max, restrictions, algorithm, columns, rows, filename) {
+      this.loading = true
+      this.axios.post(this.$serverAddr + '/rainbowTables/generate', {
+        "length_min": length_min,
+        "length_max": length_max,
+        "restrictions": restrictions['name'],
+        "algorithm": algorithm['name'],
+        "columns": columns,
+        "rows": rows,
+        "filename": filename
+      }).then((response) => {
+        this.loading = false
+        //this.loadRainbowTables()
+      })
     },
     loadRainbowTables: function () {
       this.dialog = false
