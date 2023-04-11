@@ -31,6 +31,7 @@ HCSTATS_DIR = '/usr/share/collections/markov'
 MASKS_DIR = '/usr/share/collections/masks'
 CHARSET_DIR = '/usr/share/collections/charsets'
 RULE_DIR = '/usr/share/collections/rules'
+RT_DIR = '/usr/share/collections/RTables'
 PROTECTEDFILES_DIR = '/usr/share/collections/encrypted-files'
 SERVER_BROWSER_ROOT = '/usr/share/collections/import'
 
@@ -40,7 +41,7 @@ XTOHASHCAT_PATH = ROOT_DIR + '/../xtohashcat/'
 
 # Fitcrack Settings
 SECONDS_PER_JOB = 3600
-PROJECT_USER = 'root'
+PROJECT_USER = 'boincadm'
 PROJECT_NAME = 'fitcrack'
 PROJECT_DIR = '/home/' + PROJECT_USER + '/projects/' + PROJECT_NAME
 
@@ -59,8 +60,8 @@ RESTX_ERROR_404_HELP = False
 
 # SQLAlchemy settings
 
-SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://root@localhost/fitcrack'
+SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://fitcrack:mysqlPASSWORD@localhost/fitcrack'
 
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-BOINC_SERVER_URI = 'http://localhost'
+BOINC_SERVER_URI = 'http://127.0.0.1:80'

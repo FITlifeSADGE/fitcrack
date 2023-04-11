@@ -5,6 +5,7 @@ import string
 from src.api.fitcrack.endpoints.rainbowTables.table import RainbowTable
 import src.api.fitcrack.endpoints.rainbowTables.data as data
 import pathlib
+import os
 
 import logging
 from flask import request, redirect, send_file
@@ -15,7 +16,7 @@ from src.api.fitcrack.responseModels import simpleResponse, file_content
 from settings import RT_DIR
 
 from src.api.fitcrack.endpoints.rainbowTables.argumentsParser import rainbowTables_estimateparser, rainbowTables_generateparser
-from src.api.fitcrack.endpoints.rainbowTables.responseModels import estimate_model
+from src.api.fitcrack.endpoints.rainbowTables.responseModels import estimate_model, RTSet_model
 
 from src.api.fitcrack.responseModels import simpleResponse, file_content
 
@@ -318,9 +319,73 @@ class Generate(Resource):
 #         print("Downloading file...")
 #         writeTofile(name[0][0], path)
 #         print("Done")
+
+def to_dict(my_tuple):
+    my_dict = {
+        'name': my_tuple[0],
+        'range': str(my_tuple[1]) + ' - ' + str(my_tuple[2]) + ' characters',
+        'algorithm': my_tuple[3].upper(),
+        'number': 0 if my_tuple[4] == 0 else (my_tuple[5] / my_tuple[4] * 100),
+        'id': my_tuple[6]
+    }
+    return my_dict
+
+def all_to_dict(my_tuple):
+    _, _, charset = get_reduction_func(my_tuple[3], 1, 1)
+    my_dict = {
+        'id': my_tuple[0],
+        'chain_len': my_tuple[1],
+        'algorithm': my_tuple[2],
+        'restrictions': charset,
+        'range': str(my_tuple[4]) + ' - ' + str(my_tuple[5]) + ' characters',
+        'name': my_tuple[6],
+        'tries': my_tuple[7],
+        'successful': my_tuple[8]
+    }
+    return my_dict
+
 @ns.route('/download/<filename>')
 class Download(Resource):
     def get(self, filename):
         if not data.check_name(filename):
             return {'message': 'Table does not exist', 'status': False}, 400
         return send_file(RT_DIR + '/' + filename, as_attachment=True)
+    
+@ns.route('/loadall')
+class LoadAll(Resource):
+    def get(self):
+        tables = data.load_all_tables()
+        new_tables = []
+        for table in tables:
+            table = to_dict(table)
+            new_tables.append(table)
+        return {'items': new_tables}, 200
+    
+    
+@ns.route('/<id>')
+class Table(Resource):
+
+    @api.marshal_with(RTSet_model)
+    def get(self, id):
+        """
+        Returns information about maskset with data.
+        """
+
+        RainbowSet = data.select_table(id)
+        RainbowSet = all_to_dict(RainbowSet)
+        
+
+        with open(os.path.join(RT_DIR, RainbowSet['name'])) as file:
+            content = file.read()
+
+        return {
+            'id': RainbowSet['id'],
+            'chain_len': RainbowSet['chain_len'],
+            'algorithm': RainbowSet['algorithm'].upper(),
+            'restrictions': RainbowSet['restrictions'],
+            'range': RainbowSet['range'],
+            'name': RainbowSet['name'],
+            'tries': RainbowSet['tries'],
+            'successful': RainbowSet['successful'],
+            'data': content
+        }

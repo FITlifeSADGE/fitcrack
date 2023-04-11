@@ -34,6 +34,7 @@ const charsetDetail = () => import('@/components/charset/charsetDetailView.vue')
 const markovChains = () => import('@/components/markovChains/markovView.vue')
 const rainbowTables = () => import('@/components/rainbowTables/rainbowTablesView.vue')
 const maskDetail = () => import('@/components/mask/maskDetailView.vue')
+const rainbowTablesDetail = () => import('@/components/rainbowTables/rainbowTablesDetailView.vue')
 const testView = () => import('@/components/test/test.vue')
 const PageNotFound = () => import('@/components/pageNotFound.vue')
 const EncryptedFiles = () => import('@/components/encryptedFile/encryptedFilesView.vue')
@@ -248,6 +249,11 @@ const appRoutes = [
     component: maskDetail
   },
   {
+    path: '/rainbowTables/:id',
+    name: 'rainbowTablesDetail',
+    component: rainbowTablesDetail
+  },
+  {
     path: '/markovChains',
     name: 'markovChains',
     component: markovChains,
@@ -273,7 +279,7 @@ const appRoutes = [
     component: rainbowTables,
     meta: {
       title: 'Rainbow Tables',
-      icon: 'mdi-rainbow',
+      icon: 'mdi-looks',
       navtab: 1
     }
   },

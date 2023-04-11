@@ -114,80 +114,30 @@
                   <span class="d-flex align-center">
                     <span class="text-h6">{{ open ? '' : 'Browse ' }}Rainbow Tables</span>
                   </span>
-                </template>
-              </v-expansion-panel-header>
-              <v-expansion-panel-content>
-                <v-card-text>
-                  <v-text-field :loading="loading" outlined type="number" label="Min plaintext len" min="1" max="30"
-                    hint="Select the minimum length of plaintexts" persistent-hint suffix="characters" class="mb-4"
-                    value="5" />
-
-                  <v-text-field :loading="loading" outlined type="number" label="Max plaintext len" min="1" max="30"
-                    hint="Select the maximum length of plaintexts" persistent-hint suffix="characters" class="mb-4"
-                    value="10" />
-
-                  <v-autocomplete id="hash-type-select" v-model="hashType" editable validate-on-blur clearable
-                    label="Select hash type" :items="hashTypes" item-text="name" :filter="hashTypeFilter" return-object
-                    required hide-details single-line flat solo-inverted no-data-text="No matching hash type">
-                    <template #item="{ item }">
-                      <v-list-item-content>
-                        <v-list-item-title><b>{{ item.code }}</b> - {{ item.name }}</v-list-item-title>
-                      </v-list-item-content>
-                    </template>
-                  </v-autocomplete>
-
-                  <v-autocomplete id="charset-type-select" editable validate-on-blur clearable label="Select charset"
-                    :items="charsetTypes" item-text="name" return-object required hide-details single-line flat
-                    solo-inverted no-data-text="No matching charset">
-                    <template #item="{ item }">
-                      <v-list-item-content>
-                        <v-list-item-title><b>{{ item.name }}</b></v-list-item-title>
-                      </v-list-item-content>
-                    </template>
-                  </v-autocomplete>
-
-                  <v-dialog v-model="dialog" class="text-right pa-3">
-                    <template v-slot:activator="{ on }">
-                      <v-btn v-on="on" class="d-inline-block" color="primary" outlined>
-                        Display characters
-                      </v-btn>
-                    </template>
-                    <v-card>
-                      <v-card-text>
-                        <ul>
-                          <li v-for="(item, index) in this.charsetTypes" :key="index" style="font-size: 15px;">
-                            <b>{{ item.name }}</b> : {{ item.characters }}
-                          </li>
-                        </ul>
-                      </v-card-text>
-                    </v-card>
-                  </v-dialog>
-
-                  <v-data-table :headers="headers" :items="rainbowTables.items" :loading="loading"
+              </template>
+            </v-expansion-panel-header>
+            <v-expansion-panel-content>
+              <v-card-text>
+                  <v-text-field v-model="search" append-icon="mdi-magnify" label="Search" single-line
+                    hide-details></v-text-field>
+                  <v-data-table :headers="headers" :items="rainbowTables.items" :loading="loading" :search="search"
                     :footer-props="{ itemsPerPageOptions: [10, 25, 50], itemsPerPageText: 'Rainbow tables per page' }">
-                    <template v-slot:item.time="{ item }">
-                      {{ $moment.utc(item.time).local().format('DD.MM.YYYY HH:mm') }}
+                    <template v-slot:item.name="{ item }">
+                      <router-link :to="`rainbowTables/${item.id}`">
+                        {{ item.name }}
+                      </router-link>
                     </template>
                     <template v-slot:item.actions="{ item }">
                       <v-tooltip top>
                         <template v-slot:activator="{ on }">
-                          <a :href="$serverAddr + '/rainbowTables/' + item.id" target="_blank" download v-on="on">
+                          <a :href="$serverAddr + '/rainbowTables/download/' + item.name" target="_blank" download
+                            v-on="on">
                             <v-btn icon>
                               <v-icon>mdi-file-download-outline</v-icon>
                             </v-btn>
                           </a>
                         </template>
                         <span>Download</span>
-                      </v-tooltip>
-                      <v-tooltip top>
-                        <template v-slot:activator="{ on }">
-                          <v-btn icon @click="deleteRT(item)" v-on="on">
-                            <v-icon color="error">
-                              mdi-delete-outline
-                            </v-icon>
-                          </v-btn>
-                        </template>
-                        <span>Delete</span>
                       </v-tooltip>
                     </template>
                   </v-data-table>
@@ -235,10 +185,9 @@ export default {
       { name: 'ALL ', characters: '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\]^_`{|}~' }],
       headers: [
         { text: 'Name', align: 'start', value: 'name' },
-        { text: 'Charset range', value: 'number', align: 'end' },
-        { text: 'Hash algorithm', value: 'name', align: 'end' },
+        { text: 'Charset range', value: 'range', align: 'end' },
+        { text: 'Hash algorithm', value: 'algorithm', align: 'end' },
         { text: 'Success rate', value: 'number', align: 'end' },
-        { text: 'Added', value: 'time', align: 'end' },
         { text: 'Actions', value: 'actions', align: 'end', sortable: false }
       ],
       rainbowTables: [],
@@ -250,8 +199,12 @@ export default {
       dialog: false,
       estimate: 0,
       MinPlaintextLen: 5,
+      MinPlaintextLenBrowse: 5,
       MaxPlaintextLen: 10,
+      MaxPlaintextLenBrowse: 10,
       charsetType: null,
+      CharsetTypeBrowse: null,
+      hashTypeBrowse: null,
       RowCount: 1000,
       ColumnCount: 1000,
       generating: false,
@@ -259,6 +212,7 @@ export default {
       message: '',
       filename: '',
       generated: false,
+      search: '',
       wutthresh: 180, // minimum reccomended seconds per WU
       confirmpurge: !localStorage.hasOwnProperty('confirmpurge') || localStorage.getItem('confirmpurge') == 'true',
       showContent: false,
@@ -295,6 +249,7 @@ export default {
     this.startDate = this.$moment().format('YYYY-MM-DDTHH:mm')
     this.endDate = this.$moment().format('YYYY-MM-DDTHH:mm')
     this.fetchTemplates()
+    this.loadAllRainbowTables()
   },
   watch: {
     filename(newValue) {
@@ -381,23 +336,14 @@ export default {
       }).then((response) => {
         this.loading = false
         this.generated = response.data['status']
-        //this.loadRainbowTables()
+        this.loadAllRainbowTables()
       })
     },
-    loadRainbowTables: function () {
-      this.dialog = false
+    loadAllRainbowTables: function () {
       this.loading = true;
-      this.axios.get(this.$serverAddr + '/RainbowTables', {}).then((response) => {
+      this.axios.get(this.$serverAddr + '/rainbowTables/loadall').then((response) => {
         this.rainbowTables = response.data;
         this.loading = false
-      })
-    },
-    deleteRT: function (item) {
-      this.$root.$confirm('Delete', `This will remove ${item.name} from your Rainbow Tables. Are you sure?`).then((confirm) => {
-        this.loading = true;
-        this.axios.delete(this.$serverAddr + '/RTables/' + item.id).then((response) => {
-          this.loadRainbowTables()
-        })
       })
     }
   }
