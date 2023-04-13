@@ -274,7 +274,8 @@ def verifyHashFormat(hash, hash_type, abortOnFail=False, binaryHash=False):
             hashesArr.append({
                 'hash': hashArr[0],
                 'result': hashArr[1],
-                'isInCache': isInCache
+                'isInCache': isInCache,
+                'password': dbHash.password
             })
             if hashArr[1] != 'OK':
                 hasError = True

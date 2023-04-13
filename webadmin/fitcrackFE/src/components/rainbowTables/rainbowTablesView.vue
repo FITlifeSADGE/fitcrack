@@ -90,12 +90,13 @@
                             @click="genRainbowTable(MinPlaintextLen, MaxPlaintextLen, charsetType, hashType, ColumnCount, RowCount, filename)">
                             Confirm and generate
                           </v-btn>
-                          <a :href="$serverAddr + '/rainbowTables/download/' + filename + '.csv'" target="_blank"
+                          <a :href="downloadTable" target="_blank"
                             download>
                             <v-btn class="d-inline-block" color="primary" text outlined :disabled="!generated">
                               Download
                             </v-btn>
                           </a>
+                          <!-- ="$serverAddr + '/rainbowTables/download/' + filename + '.csv' -->
                         </div>
                       </v-card-text>
                       <v-card-text v-else>
@@ -114,10 +115,10 @@
                   <span class="d-flex align-center">
                     <span class="text-h6">{{ open ? '' : 'Browse ' }}Rainbow Tables</span>
                   </span>
-              </template>
-            </v-expansion-panel-header>
-            <v-expansion-panel-content>
-              <v-card-text>
+                </template>
+              </v-expansion-panel-header>
+              <v-expansion-panel-content>
+                <v-card-text>
                   <v-text-field v-model="search" append-icon="mdi-magnify" label="Search" single-line
                     hide-details></v-text-field>
                   <v-data-table :headers="headers" :items="rainbowTables.items" :loading="loading" :search="search"
@@ -241,6 +242,19 @@ export default {
     },
     helpAlreadyDismissed() {
       return localStorage.getItem('dismissedHelp') == 'true'
+    },
+    downloadTable() {
+      if (this.generated) {
+        if (this.filename.substring(this.filename.length - 4) != '.csv') {
+          return this.$serverAddr + '/rainbowTables/download/' + this.filename + '.csv'
+        }
+        else {
+          return this.$serverAddr + '/rainbowTables/download/' + this.filename
+        }
+      }
+      else {
+        return null
+      }
     }
   },
   mounted: function () {
@@ -364,4 +378,5 @@ export default {
 .rmw {
   max-width: 900px;
 }
+
 </style>
