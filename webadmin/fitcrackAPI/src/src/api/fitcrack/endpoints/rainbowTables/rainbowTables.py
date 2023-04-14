@@ -4,24 +4,25 @@ import random
 import string
 from src.api.fitcrack.endpoints.rainbowTables.table import RainbowTable
 import src.api.fitcrack.endpoints.rainbowTables.data as data
-import pathlib
+from src.api.fitcrack.functions import fileUpload, shellExec
 import os
-
 import logging
 from flask import request, redirect, send_file
 from flask_restx import Resource, abort
 from sqlalchemy import exc
-
 from src.api.fitcrack.responseModels import simpleResponse, file_content
 from settings import RT_DIR
-
 from src.api.fitcrack.endpoints.rainbowTables.argumentsParser import rainbowTables_estimateparser, rainbowTables_generateparser
 from src.api.fitcrack.endpoints.rainbowTables.responseModels import estimate_model, RTSet_model
+import csv
+import pathlib
 
-from src.api.fitcrack.responseModels import simpleResponse, file_content
 
 log = logging.getLogger(__name__)
 ns = api.namespace('rainbowTables', description='Endpoints for work with HcStats files.')
+
+ALLOWED_EXTENSIONS = set(['csv'])
+CSV_FIELDNAMES = ['start_point', 'endpoint_hash']
 
 def writeTofile(data, filename):
     # Convert binary data to proper format and write it on Hard Disk
@@ -295,31 +296,6 @@ class Generate(Resource):
 #               ID:                       {5}""".format(table[0], table[1], table[2], table[4], table[5], table[3]))
 #         print("Select a table using load path ID")
     
-# elif args.mode == "load":
-#     name = data.fetch_table(args.ID)
-#     if not name: # Check if table exists
-#         print("No table with this ID")
-#         exit(1)
-#     if not pathlib.Path(args.path).exists(): # Check if path exists
-#         print("Path does not exist")
-#         exit(0)
-#     path = args.path + "/" + name[0][1] # Create path to file
-#     if pathlib.Path(path).is_file():
-#         print("File already exists, are you sure you want to rewrite it? (y/n)")
-#         inp = input()
-#         if inp == "y":
-#             writeTofile(name[0][0], path)
-#         elif inp == "n":
-#             print("Exiting...")
-#             exit(0)
-#         else: 
-#             print("Invalid input, exiting...")
-#             exit(0)
-#     else:
-#         print("Downloading file...")
-#         writeTofile(name[0][0], path)
-#         print("Done")
-
 def to_dict(my_tuple):
     my_dict = {
         'name': my_tuple[0],
@@ -389,3 +365,55 @@ class Table(Resource):
             'successful': RainbowSet['successful'],
             'data': content
         }
+        
+@ns.route('/add')
+class rainbowAdd(Resource):
+
+    @api.marshal_with(simpleResponse)
+    def post(self):
+        """
+        Uploads HcStats files on server.
+        """
+        # check if the post request has the file part
+        if 'file' not in request.files:
+            abort(500, 'No file part')
+            return redirect(request.url)
+        file = request.files['file']
+        # if user does not select file, browser also
+        # submit a empty part without filename
+        if file.filename == '':
+            abort(500, 'No selected file')
+
+        uploadedFile = fileUpload(file, RT_DIR, ALLOWED_EXTENSIONS, suffix='.csv', withTimestamp=True)
+        if uploadedFile:
+            with open(os.path.join(RT_DIR, uploadedFile['filename'])) as file:
+                content = file.read()
+                if 'start_point' not in content:
+                    abort(500, 'Wrong file format')
+                if 'endpoint_hash' not in content:
+                    abort(500, 'Wrong file format')
+                if 'chain_len' not in content:
+                    abort(500, 'Wrong file format')
+                if 'alg' not in content:
+                    abort(500, 'Wrong file format')
+                if 'rest' not in content:
+                    abort(500, 'Wrong file format')
+                if 'len' not in content:
+                    abort(500, 'Wrong file format')
+                if 'len_max' not in content:
+                    abort(500, 'Wrong file format')
+                    
+                my_dict = {}
+                
+                for line in content.split('\n'):
+                    if line.strip() != '':
+                        value, key = line.split(',')
+                        my_dict[key] = value
+                
+                table = RainbowTable('', my_dict['chain_len'], '', '', my_dict['alg'], my_dict['rest'], my_dict['len'], my_dict['len_max'])
+                
+                data.add_table_to_database(table, uploadedFile['filename'])  
+                return {'message': 'File ' + uploadedFile['filename'] + ' succesfully uploaded', 'status': True}
+        else:
+            abort(500, 'Wrong file format')
+    

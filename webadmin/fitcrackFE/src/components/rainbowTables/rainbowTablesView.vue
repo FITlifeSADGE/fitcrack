@@ -142,6 +142,7 @@
                       </v-tooltip>
                     </template>
                   </v-data-table>
+                  <file-uploader :url="this.$serverAddr + '/rainbowTables/add'" @uploadComplete="loadAllRainbowTables" />
                 </v-card-text>
               </v-expansion-panel-content>
             </v-expansion-panel>
@@ -163,6 +164,7 @@ import { mapState, mapGetters, mapMutations } from 'vuex'
 import { mapTwoWayState } from 'spyfu-vuex-helpers'
 import { twoWayMap } from '@/store'
 import tile from '@/components/tile/fc_tile.vue'
+import fileCreator from "@/components/fileUploader/fileCreator.vue";
 
 
 export default {
@@ -173,6 +175,8 @@ export default {
     'host-selector': hostSelector,
     'template-modal': templateModal,
     'fc-tile': tile,
+    fileCreator,
+      'fc-tile': tile,
   },
   data: function () {
     return {
@@ -191,6 +195,7 @@ export default {
         { text: 'Success rate', value: 'number', align: 'end' },
         { text: 'Actions', value: 'actions', align: 'end', sortable: false }
       ],
+      working: false,
       rainbowTables: [],
       keyspace: null,
       hashListError: false,
@@ -222,7 +227,8 @@ export default {
           name: 'Empty',
           id: 0
         }
-      ]
+      ],
+      addnew: false,
     }
   },
   computed: {

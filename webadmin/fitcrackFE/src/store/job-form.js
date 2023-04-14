@@ -65,7 +65,7 @@ export default {
     ...empty
   },
   getters: {
-    attackSettings (state) {
+    attackSettings(state) {
       const current = attacks.find(a => a.handler === state.attackSettingsTab)
       if (!current) return false
       return {
@@ -93,11 +93,11 @@ export default {
         'min_elem_in_chain': parseInt(state.minElemInChain),
         'max_elem_in_chain': parseInt(state.maxElemInChain),
         'generate_random_rules': parseInt(state.generateRandomRules),
-         // other
+        // other
         'optimized': Vue.prototype.$optimizedOnly ? true : state.optimized,
       }
     },
-    jobSettings (state, { attackSettings }) {
+    jobSettings(state, { attackSettings }) {
       return {
         "name": state.name,
         "comment": state.comment,
@@ -113,14 +113,14 @@ export default {
         }
       }
     },
-    validAttackSpecificSettings (state) {
+    validAttackSpecificSettings(state) {
       switch (state.attackSettingsTab) {
         case 'dictionary':
           return state.leftDicts.length > 0
         case 'combinator':
           return state.leftDicts.length > 0 && state.rightDicts.length > 0
         case 'maskattack':
-          if (state.submode > 0 && state.markov.length == 0) return false 
+          if (state.submode > 0 && state.markov.length == 0) return false
           return state.masks.filter(m => m !== '').length > 0
         case 'hybridWordlistMask':
           return state.leftDicts.length > 0 && state.hybridMask !== ''
@@ -162,7 +162,7 @@ export default {
           return true
       }
     },
-    valid (state, { attackSettings, validAttackSpecificSettings }) {
+    valid(state, { attackSettings, validAttackSpecificSettings }) {
       if (
         !state.attackSettingsTab ||
         !attackSettings ||
@@ -176,24 +176,24 @@ export default {
         return validAttackSpecificSettings
       }
     },
-    keyspaceKnown ({ attackSettingsTab }, { validAttackSpecificSettings }) {
+    keyspaceKnown({ attackSettingsTab }, { validAttackSpecificSettings }) {
       return attackSettingsTab && validAttackSpecificSettings
     },
-    template (state) {
+    template(state) {
       const keys = Object.keys(empty)
       return Object.keys(state)
         .filter(key => keys.includes(key))
         .reduce((obj, key) => {
-          if (JSON.stringify(state[key]) !== JSON.stringify(empty[key]) || ( key === 'masks' && state.masks[0] !== '' )) {
+          if (JSON.stringify(state[key]) !== JSON.stringify(empty[key]) || (key === 'masks' && state.masks[0] !== '')) {
             obj[key] = state[key]
           }
           return obj
         }, {})
     },
-    validTemplate (state, { template }) {
+    validTemplate(state, { template }) {
       return Object.keys(template).length > 0
     },
-    makeTemplate (state, { template }) {
+    makeTemplate(state, { template }) {
       return function (name) {
         const t = template
         t.template = name
@@ -206,27 +206,27 @@ export default {
       ...base,
       ...empty
     }),
-    update (state, changes) {
+    update(state, changes) {
       Object.assign(state, changes)
     },
-    applyTemplate (state, template = '{}') {
+    applyTemplate(state, template = '{}') {
       Object.assign(state, {
         ...empty,
         ...template
       })
     },
     //
-    addMask ({ masks }, val = '') {
+    addMask({ masks }, val = '') {
       masks.push(val)
     },
-    deleteMask ({ masks }, index) {
+    deleteMask({ masks }, index) {
       if (masks.length <= 1) return
       masks.splice(index, 1)
     },
-    updateMask ({ masks }, {index, val}) {
+    updateMask({ masks }, { index, val }) {
       Vue.set(masks, index, val)
     },
-    mergeMasks (state, arr) {
+    mergeMasks(state, arr) {
       state.masks = [...state.masks, ...arr]
       if (state.masks[0] == '') state.masks.shift()
     }
@@ -234,11 +234,12 @@ export default {
 }
 
 export const attacks = [
-  {handler: 'dictionary', name: 'Dictionary', id: 0, serverName: 'dict'},
-  {handler: 'combinator', name: 'Combination', id: 1, serverName: 'combinator'},
-  {handler: 'maskattack', name: 'Brute-force', id: 3, serverName: 'mask'},
-  {handler: 'hybridWordlistMask', name: 'Hybrid Wordlist + Mask', id: 6, serverName: 'Hybrid wordlist+mask'},
-  {handler: 'hybridMaskWordlist', name: 'Hybrid Mask + Wordlist', id: 7, serverName: 'Hybrid mask+wordlist'},
-  {handler: 'princeAttack', name: 'PRINCE', id: 8, serverName: 'prince'},
-  {handler: 'pcfgAttack', name: 'PCFG', id: 9, serverName: 'pcfg'}
+  { handler: 'dictionary', name: 'Dictionary', id: 0, serverName: 'dict' },
+  { handler: 'combinator', name: 'Combination', id: 1, serverName: 'combinator' },
+  { handler: 'maskattack', name: 'Brute-force', id: 3, serverName: 'mask' },
+  { handler: 'hybridWordlistMask', name: 'Hybrid Wordlist + Mask', id: 6, serverName: 'Hybrid wordlist+mask' },
+  { handler: 'hybridMaskWordlist', name: 'Hybrid Mask + Wordlist', id: 7, serverName: 'Hybrid mask+wordlist' },
+  { handler: 'princeAttack', name: 'PRINCE', id: 8, serverName: 'prince' },
+  { handler: 'pcfgAttack', name: 'PCFG', id: 9, serverName: 'pcfg' },
+  { handler: 'rainbow', name: 'Rainbow Tables', id: 10, serverName: 'rainbowTables' },
 ]

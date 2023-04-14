@@ -322,6 +322,7 @@ import fcTextarea from '@/components/textarea/fc_textarea.vue'
 import hostSelector from '@/components/selector/hostSelector.vue'
 import templateModal from '@/components/jobTemplate/templateModal.vue'
 import dtPicker from '@/components/picker/datetime.vue'
+import rainbow from '@/components/job/attacks/rainbow.vue'
 
 import { mapState, mapGetters, mapMutations } from 'vuex'
 import { mapTwoWayState } from 'spyfu-vuex-helpers'
@@ -340,6 +341,7 @@ export default {
     'hybridWordlistMask': hybridWordlistMask,
     'pcfgAttack': pcfgAttack,
     'princeAttack': princeAttack,
+    'rainbow': rainbow,
     'fc-textarea': fcTextarea,
     'host-selector': hostSelector,
     'template-modal': templateModal,
