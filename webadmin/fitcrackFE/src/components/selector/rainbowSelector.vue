@@ -8,7 +8,7 @@
     :footer-props="footerProps" :search="search" item-key="id" show-select :single-select="!selectAll"
     @input="updateSelected">
     <template v-slot:item.name="{ item }">
-      <router-link :to="{name: 'rainbowTablesDetail', params: { id: item.id}}">
+      <router-link :to="{ name: 'rainbowTablesDetail', params: { id: item.id } }">
         {{ item.name }}
       </router-link>
     </template>
@@ -30,6 +30,9 @@
 <script>
 import fmt from '@/assets/scripts/numberFormat'
 import selector from './selectorMixin'
+import { mapState, mapGetters, mapMutations } from 'vuex'
+import { mapTwoWayState } from 'spyfu-vuex-helpers'
+import { twoWayMap } from '@/store'
 export default {
   name: "RainbowSelector",
   mixins: [selector],
@@ -45,12 +48,27 @@ export default {
       rainbowTables: []
     }
   },
+  computed: {
+    ...mapState('jobForm', ['selectedTemplate']),
+    ...mapTwoWayState('jobForm', twoWayMap([
+      'hashList', 'hashType', 'rainbows'
+    ])),
+    hashTypeCode() {
+      return this.hashType ? this.hashType.code : 0;
+    }
+  },
+  watch: {
+    hashType(newValue, oldValue) {
+      if (newValue !== oldValue) {
+        this.getData();
+      }
+    }
+  },
   methods: {
     fmt,
     getData: function () {
       this.loading = true;
-      console.log(this.$serverAddr + '/rainbowTables/loadall')
-      this.axios.get(this.$serverAddr + '/rainbowTables/loadall').then((response) => {
+      this.axios.post(this.$serverAddr + '/rainbowTables/loadall', {"code": this.hashTypeCode }).then((response) => {
         this.rainbowTables = response.data;
         this.loading = false
       })

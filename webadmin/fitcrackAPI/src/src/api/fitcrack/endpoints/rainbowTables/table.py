@@ -58,7 +58,6 @@ class RainbowTable:
         return None
 
     def crack(self, hashedPassword):
-        print("Searching for a match in Rainbow Table, progress bar represents worst case scenario...")
         if hashedPassword in self.table:
             traversalResult = self.recreate_chain(hashedPassword, self.table[hashedPassword])
             if traversalResult:
@@ -72,7 +71,7 @@ class RainbowTable:
                 if traversalResult:
                     return traversalResult
  
-    def load_from_cvs(self, filename="RainbowTable.csv"):
+    def load_from_csv(self, filename="RainbowTable.csv"):
         self.table = {}
         if not pathlib.Path(filename).exists():
             print("File not found, please check the path and try again.")

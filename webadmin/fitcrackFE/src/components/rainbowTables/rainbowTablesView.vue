@@ -90,17 +90,19 @@
                             @click="genRainbowTable(MinPlaintextLen, MaxPlaintextLen, charsetType, hashType, ColumnCount, RowCount, filename)">
                             Confirm and generate
                           </v-btn>
-                          <a :href="downloadTable" target="_blank"
-                            download>
+                          <a :href="downloadTable" target="_blank" download>
                             <v-btn class="d-inline-block" color="primary" text outlined :disabled="!generated">
                               Download
                             </v-btn>
                           </a>
-                          <!-- ="$serverAddr + '/rainbowTables/download/' + filename + '.csv' -->
+                          <div v-if="loading" style="text-align: center;">
+                              Generating table in progress...
+                            <v-progress-linear indeterminate color="primary" class="mt-3"></v-progress-linear>
+                          </div>
                         </div>
                       </v-card-text>
                       <v-card-text v-else>
-                        Please fill all the fields.
+                        Some fields appear to be empty or invalid. Please check your input.
                       </v-card-text>
                     </v-card>
                   </v-dialog>
@@ -108,6 +110,7 @@
               </v-expansion-panel-content>
             </v-expansion-panel>
           </v-expansion-panels>
+
           <v-expansion-panels flat class="mt-7">
             <v-expansion-panel>
               <v-expansion-panel-header class="px-4">
@@ -147,6 +150,124 @@
               </v-expansion-panel-content>
             </v-expansion-panel>
           </v-expansion-panels>
+
+          <v-expansion-panels flat class="mt-8">
+            <v-expansion-panel>
+              <v-expansion-panel-header class="px-4">
+                <template v-slot:default="{ open }">
+                  <span class="d-flex align-center">
+                    <span class="text-h6">{{ open ? '' : '' }}Crack hashes using Rainbow Tables</span>
+                  </span>
+                </template>
+              </v-expansion-panel-header>
+              <v-expansion-panel-content>
+                <v-card-text>
+                  <v-stepper id="job-stepper" v-model="step" vertical non-linear class="mb-4">
+                    <v-stepper-step id="job-step-1" editable step="1">
+                      Enter hashes
+                    </v-stepper-step>
+                    <v-stepper-content step="1">
+                      <v-autocomplete id="hash-type-select" v-model="hashType" editable validate-on-blur clearable
+                        label="Select hash type" :items="hashTypes" item-text="name" :filter="hashTypeFilter"
+                        return-object required hide-details single-line flat solo-inverted
+                        no-data-text="No matching hash type" @change="validateHashes(null)">
+                        <template #item="{ item }">
+                          <v-list-item-content>
+                            <v-list-item-title><b>{{ item.code }}</b> - {{ item.name }}</v-list-item-title>
+                          </v-list-item-content>
+                        </template>
+                      </v-autocomplete>
+
+                      <fc-textarea id="hashes-input" v-if="inputMethod !== null" ref="textarea" v-model="hashList"
+                        :class="{ 'hasherror': hashListError }" class="textarea" max-height="500"
+                        :readonly="!(inputMethod === 'multipleHashes' && !gotBinaryHash)" :can-remove-line="true"
+                        @blur="validateHashes" @focus="unvalidateHashes">
+                        <div slot="after" class="hashCeckContainer pl-1 pt-2">
+                          <div v-for="hashObj in validatedHashes" :key="hashObj.id">
+                            <v-icon v-if="hashObj.result === 'OK'" small color="success">
+                              check_circle_outlined
+                            </v-icon>
+                            <v-tooltip v-else left>
+                              <template v-slot:activator="{ on }">
+                                <v-icon small color="error" class="clickable" v-on="on">
+                                  error_circle_outlined
+                                </v-icon>
+                              </template>
+                              <span>{{ hashObj.result }}</span>
+                            </v-tooltip>
+                            <v-tooltip v-if="hashObj.isInCache" left>
+                              <template v-slot:activator="{ on }">
+                                <v-icon small color="warning" class="clickable" v-on="on">
+                                  error_circle_outlined
+                                </v-icon>
+                              </template>
+                              <span>hash already in hashcache</span>
+                              <br>
+                              <span> password: {{ hashObj.password }} </span>
+                            </v-tooltip>
+                          </div>
+                        </div>
+                      </fc-textarea>
+                      <v-btn color="primary" @click="step = 2">
+                        Next
+                      </v-btn>
+                    </v-stepper-content>
+                    <v-stepper-step id="job-step-2" editable step="2">
+                      Select rainbow table
+                    </v-stepper-step>
+                    <v-stepper-content step="2">
+                      <v-container>
+                        <div>
+                          <v-card-title>
+                            <span>Select rainbow table<span class="required primary--text"> *</span></span>
+                          </v-card-title>
+                          <rainbow-selector v-model="rainbows" select-all />
+                        </div>
+
+                        <v-row>
+                          <v-spacer />
+                          <v-btn class="mr-6 mt-4" color="primary" @click="step = 3">
+                            Next
+                          </v-btn>
+                        </v-row>
+                      </v-container>
+                    </v-stepper-content>
+                    <v-stepper-step id="job-step-3" editable step="3">
+                      Crack hashes
+                    </v-stepper-step>
+                    <v-stepper-content step="3">
+                      <v-container>
+                        <div>
+                          <v-card-title>
+                            <span>Entered hashes</span>
+                          </v-card-title>
+                          <div :key="hashObj.id" v-for="hashObj in validatedHashes">
+                            <v-card-text>
+                              <span>{{ hashObj.hash }}
+                                <div v-for="(value, key) in getPasswords.items" :key="key" v-if="key === hashObj.hash"> password: <b>{{
+                                  value }}</b></div>
+                              </span>
+                            </v-card-text>
+                          </div>
+                        </div>
+
+                        <v-row>
+                          <v-spacer />
+                          <v-btn class="mr-6 mt-4" color="primary" @click="CrackEnteredHashes(hashList, rainbows)">
+                            Crack hashes
+                          </v-btn>
+                        </v-row>
+                        <div v-if="loading">
+                          Cracking hashes in progress...
+                          <v-progress-linear indeterminate color="primary" class="mt-3"></v-progress-linear>
+                        </div>
+                      </v-container>
+                    </v-stepper-content>
+                  </v-stepper>
+                </v-card-text>
+              </v-expansion-panel-content>
+            </v-expansion-panel>
+          </v-expansion-panels>
         </fc-tile>
       </v-col>
     </v-row>
@@ -154,17 +275,17 @@
 </template>
 
 <script>
-import numberFormat from '@/assets/scripts/numberFormat'
-import { attackIcon } from '@/assets/scripts/iconMaps'
 import FileUploader from "@/components/fileUploader/fileUploader.vue";
 import fcTextarea from '@/components/textarea/fc_textarea.vue'
-import hostSelector from '@/components/selector/hostSelector.vue'
 import templateModal from '@/components/jobTemplate/templateModal.vue'
 import { mapState, mapGetters, mapMutations } from 'vuex'
 import { mapTwoWayState } from 'spyfu-vuex-helpers'
 import { twoWayMap } from '@/store'
 import tile from '@/components/tile/fc_tile.vue'
-import fileCreator from "@/components/fileUploader/fileCreator.vue";
+import fileCreator from "@/components/fileUploader/fileCreator.vue"
+import RainbowSelector from '@/components/selector/rainbowSelector.vue'
+import VueProgressBar from 'vue-progressbar'
+
 
 
 export default {
@@ -172,17 +293,16 @@ export default {
   components: {
     FileUploader,
     'fc-textarea': fcTextarea,
-    'host-selector': hostSelector,
     'template-modal': templateModal,
     'fc-tile': tile,
     fileCreator,
-      'fc-tile': tile,
+    'rainbow-selector': RainbowSelector
   },
   data: function () {
     return {
       loading: false,
       helpDismissedMessage: false,
-      supported: ["MD5", "SHA1", "MD4", "NTLM", "SHA2-256"],
+      supported: ["MD5", "SHA1", "SHA2-224", "SHA2-256", "SHA2-512", "SHA2-384"],
       hashTypes: [],
       charsetTypes: [{ name: 'LOWERCASE', characters: 'abcdefghijklmnopqrstuvwxyz' }, { name: 'UPPERCASE', characters: 'abcdefghijklmnopqrstuvwxyz'.toUpperCase() },
       { name: 'LETTERS', characters: 'abcdefghijklmnopqrstuvwxyz' + 'abcdefghijklmnopqrstuvwxyz'.toUpperCase() },
@@ -229,12 +349,16 @@ export default {
         }
       ],
       addnew: false,
+      gotBinaryHash: false,
+      IDs: [],
+      passwords: [],
+      progress: 0
     }
   },
   computed: {
     ...mapState('jobForm', ['selectedTemplate']),
     ...mapTwoWayState('jobForm', twoWayMap([
-      'step', 'attackSettingsTab', 'validatedHashes', 'name', 'inputMethod', 'hashList', 'hashType', 'ignoreHashes', 'startDate', 'endDate', 'template', 'comment', 'hosts', 'startNow', 'endNever', 'timeForJob'
+      'step', 'attackSettingsTab', 'validatedHashes', 'name', 'inputMethod', 'hashList', 'hashType', 'ignoreHashes', 'startDate', 'endDate', 'template', 'comment', 'hosts', 'startNow', 'endNever', 'timeForJob', 'rainbows'
     ])),
     ...mapGetters('jobForm', ['jobSettings', 'valid', 'validAttackSpecificSettings', 'keyspaceKnown']),
     templateItems() {
@@ -261,6 +385,9 @@ export default {
       else {
         return null
       }
+    },
+    getPasswords() {
+      return this.passwords
     }
   },
   mounted: function () {
@@ -278,8 +405,6 @@ export default {
   },
   methods: {
     ...mapMutations('jobForm', ['applyTemplate']),
-    numberFormat,
-    attackIcon,
     async loadSettings() {
       this.loading = true
       this.settings = await this.axios.get(this.$serverAddr + '/settings').then(r => r.data)
@@ -317,6 +442,34 @@ export default {
         }
       }
     },
+    validateHashes: function (data = null) {
+      if (data === null) {
+        data = this.hashList
+      }
+      var hashesList = data.split('\n')
+      if (data.startsWith("BASE64:")) {
+        this.gotBinaryHash = true
+      } else {
+        this.gotBinaryHash = false
+      }
+      if (this.hashType === null || isNaN(this.hashType.code)) {
+        return
+      }
+      if (data === '') {
+        return
+      }
+
+      this.axios.post(this.$serverAddr + '/job/verifyHash', {
+        'hashtype': this.hashType.code,
+        'hashes': data
+      }).then((response) => {
+        this.hashListError = response.data.error
+        this.validatedHashes = response.data.items
+      })
+    },
+    unvalidateHashes: function (data) {
+      this.validatedHashes = []
+    },
     getHashTypes: function () {
       this.axios.get(this.$serverAddr + '/hashcat/hashTypes').then((response) => {
         this.hashTypes = response.data.hashtypes
@@ -329,12 +482,12 @@ export default {
         this.hash_input = false
         return
       }
+      console.log(algorithm['code'])
       this.hash_input = true
-      console.log(chain_len, chain_num, algorithm['name'], charset['name'], max_len)
       this.axios.post(this.$serverAddr + '/rainbowTables/estimate', {
         "chain_len": chain_len,
         "chain_num": chain_num,
-        "algorithm": algorithm['name'],
+        "algorithm": algorithm['code'],
         "charset": charset['name'],
         "max_len": max_len
       }).then((response) => {
@@ -349,7 +502,7 @@ export default {
         "length_min": length_min,
         "length_max": length_max,
         "restrictions": restrictions['name'],
-        "algorithm": algorithm['name'],
+        "algorithm": algorithm['code'],
         "columns": columns,
         "rows": rows,
         "filename": filename
@@ -357,12 +510,38 @@ export default {
         this.loading = false
         this.generated = response.data['status']
         this.loadAllRainbowTables()
+      }).catch((error) => {
+        // Handle error here if needed
+      }).finally(() => {
+        this.loading = false
       })
     },
     loadAllRainbowTables: function () {
-      this.loading = true;
+      this.loading = true
       this.axios.get(this.$serverAddr + '/rainbowTables/loadall').then((response) => {
         this.rainbowTables = response.data;
+        this.loading = false
+      }).catch((error) => {
+        // Handle error here if needed
+      }).finally(() => {
+        this.loading = false
+      })
+    },
+    CrackEnteredHashes: function (hashList, rainbows) {
+      this.loading = true
+      for (var i = 0; i < rainbows.length; i++) {
+        this.IDs.push(rainbows[i].id)
+      }
+      this.axios.post(this.$serverAddr + '/rainbowTables/crack', {
+        "tables": this.IDs,
+        "hashes": hashList
+      }).then((response) => {
+        this.passwords = response.data;
+        this.loading = false
+        console.log(this.passwords)
+      }).catch((error) => {
+        // Handle error here if needed
+      }).finally(() => {
         this.loading = false
       })
     }
@@ -385,4 +564,57 @@ export default {
   max-width: 900px;
 }
 
+.containerAddJob {
+  padding: 2em;
+  padding-top: 54px;
+  position: relative;
+  max-width: 1300px;
+}
+
+.addJobContent {
+  width: 100%;
+}
+
+.max500 {
+  max-width: 500px;
+  width: 100%;
+}
+
+.max800 {
+  max-width: 800px;
+  width: 100%;
+}
+
+.max1000 {
+  max-width: 1000px;
+}
+
+.infobar {
+  position: fixed;
+  z-index: 5;
+  bottom: 1.2em;
+  right: 1.2em;
+  padding: 0.5em 1.5em;
+  border-radius: 2em;
+}
+
+.filetype-link {
+  color: inherit
+}
+
+.hashCeckContainer {
+  display: block;
+  max-width: 35px;
+  overflow: hidden;
+}
+
+.mode-btn {
+  height: initial !important;
+  margin: 1em;
+}
+
+.scroller {
+  max-height: 400px;
+  overflow-y: auto;
+}
 </style>

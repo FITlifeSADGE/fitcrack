@@ -118,7 +118,7 @@ export default {
         return {
             data: null,
             newData: '',
-            showLength: 1000,
+            showLength: 2000,
             loadMore: true
         }
     },
@@ -138,7 +138,7 @@ export default {
 
             if (scrollPosition >= pageHeight && this.loadMore) {
                 // Load more text
-                this.showLength += 1000;
+                this.showLength += 2000;
 
                 // Stop loading more text if all text is displayed
                 if (this.showLength >= this.data.data.length) {

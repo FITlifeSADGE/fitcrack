@@ -91,9 +91,17 @@ def check_name(name: str):
     return cur.fetchone()
 
 def load_all_tables():
-    cur.execute("SELECT name, password_length_min, password_length_max, hashing_alg, number_of_tries, successful_tries, id FROM RainbowTable")
+    cur.execute("SELECT name, password_length_min, password_length_max, hashing_alg, number_of_tries, successful_tries, id, chain_len FROM RainbowTable")
     return cur.fetchall()
 
 def select_table(id: int):
+    cur.execute("SELECT * FROM RainbowTable WHERE id = ?", (id,))
+    return cur.fetchone()
+
+def load_hash_type_tables(alg: str):
+    cur.execute("SELECT name, password_length_min, password_length_max, hashing_alg, number_of_tries, successful_tries, id, chain_len FROM RainbowTable WHERE hashing_alg = ?", (alg,))
+    return cur.fetchall()
+
+def fetch_table_from_id(id: int):
     cur.execute("SELECT * FROM RainbowTable WHERE id = ?", (id,))
     return cur.fetchone()

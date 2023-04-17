@@ -281,6 +281,11 @@
         <v-row v-if="hosts.length == 0" justify="center">
           <v-alert outlined type="warning">
             This job has no hosts assigned to it and won't be able to run until edited!
+            <div v-for="hashObj in validatedHashes" :key="hashObj.id">
+              <span v-if="hashObj.isInCache">
+                {{ hashObj.hash }} already in database, plaintext: {{ hashObj.password }}
+              </span>
+            </div>
           </v-alert>
         </v-row>
 
@@ -298,6 +303,7 @@
               {{ hosts.length > 0 ? 'mdi-check' : 'mdi-content-save' }}
             </v-icon>
             {{ hosts.length > 0 ? 'Create' : 'Save for later' }}
+
           </v-btn>
         </v-row>
       </v-col>
@@ -370,7 +376,7 @@ export default {
   computed: {
     ...mapState('jobForm', ['selectedTemplate']),
     ...mapTwoWayState('jobForm', twoWayMap([
-      'step', 'attackSettingsTab', 'validatedHashes', 'name', 'inputMethod', 'hashList', 'hashType', 'ignoreHashes', 'startDate', 'endDate', 'template', 'comment', 'hosts', 'startNow', 'endNever', 'timeForJob'
+      'step', 'attackSettingsTab', 'validatedHashes', 'name', 'inputMethod', 'hashList', 'hashType', 'ignoreHashes', 'startDate', 'endDate', 'template', 'comment', 'hosts', 'startNow', 'endNever', 'timeForJob', 'rainbows'
     ])),
     ...mapGetters('jobForm', ['jobSettings', 'valid', 'validAttackSpecificSettings', 'keyspaceKnown']),
     templateItems() {

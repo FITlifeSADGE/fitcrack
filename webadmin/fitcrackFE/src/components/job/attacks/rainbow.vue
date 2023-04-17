@@ -3,7 +3,7 @@
     <v-card-title>
       <span>Select rainbow table<span class="required primary--text"> *</span></span>
     </v-card-title>
-    <rainbow-selector v-model="rainbows" select-all @input="checkValid" />
+    <rainbow-selector v-model="rainbows" select-all/>
   </div>
 </template>
   
@@ -20,11 +20,6 @@ export default {
     'rainbow-selector': RainbowSelector
   },
   computed: mapTwoWayState('jobForm', twoWayMap(['rainbows'])),
-  methods: {
-    checkValid: function () {
-      return true
-    }
-  }
 }
 </script>
 

@@ -7,22 +7,53 @@ import src.api.fitcrack.endpoints.rainbowTables.data as data
 from src.api.fitcrack.functions import fileUpload, shellExec
 import os
 import logging
-from flask import request, redirect, send_file
+from flask import request, redirect, send_file, jsonify
 from flask_restx import Resource, abort
 from sqlalchemy import exc
 from src.api.fitcrack.responseModels import simpleResponse, file_content
 from settings import RT_DIR
-from src.api.fitcrack.endpoints.rainbowTables.argumentsParser import rainbowTables_estimateparser, rainbowTables_generateparser
+from src.api.fitcrack.endpoints.rainbowTables.argumentsParser import rainbowTables_estimateparser, rainbowTables_generateparser, rainbowTables_loadparser, rainbowTables_crackparser
 from src.api.fitcrack.endpoints.rainbowTables.responseModels import estimate_model, RTSet_model
-import csv
-import pathlib
-
+from src.database.models import FcHash
+from src.database import db
 
 log = logging.getLogger(__name__)
 ns = api.namespace('rainbowTables', description='Endpoints for work with HcStats files.')
 
 ALLOWED_EXTENSIONS = set(['csv'])
 CSV_FIELDNAMES = ['start_point', 'endpoint_hash']
+
+def get_hash_alg_from_code(code):
+    mapping = {
+    0: 'md5',
+    100: 'sha1',
+    900: 'md4',
+    1000: 'ntlm',
+    1300: 'sha2-224',
+    1400: 'sha2-256',
+    1700: 'sha2-512',
+    3000: 'lm',
+    10800: 'sha2-384',
+    }
+    if code not in mapping:
+        raise ValueError('Unknown hash algorithm code')
+    return mapping[code]
+
+def get_code_from_hash_alg(alg):
+    mapping = {
+        'md5': 0,
+        'sha1': 100,
+        'md4': 900,
+        'ntlm': 1000,
+        'sha2-224': 1300,
+        'sha2-256': 1400,
+        'sha2-512': 1700,
+        'lm': 3000,
+        'sha2-384': 10800,
+    }
+    if alg not in mapping:
+        raise ValueError('Unknown hash algorithm')
+    return mapping[alg]
 
 def writeTofile(data, filename):
     # Convert binary data to proper format and write it on Hard Disk
@@ -32,7 +63,6 @@ def writeTofile(data, filename):
     
 # Estimate time to generate a table
 def estimate_gen_time(chain_len, chain_num, algorithm, charset, max_len):
-    algorithm = algorithm.lower()
     default_chars = 26
     charset = len(charset)
     diff = charset - default_chars
@@ -76,7 +106,8 @@ class Estimate(Resource):
     @api.expect(rainbowTables_estimateparser)
     def post(self):
         args = rainbowTables_estimateparser.parse_args(request)
-        time = estimate_gen_time(args['chain_len'], args['chain_num'], args['algorithm'], args['charset'], args['max_len'])
+        hash_alg = get_hash_alg_from_code(args['algorithm'])
+        time = estimate_gen_time(args['chain_len'], args['chain_num'], hash_alg, args['charset'], args['max_len'])
 
         return {"time": time}, 200
 
@@ -195,15 +226,18 @@ def reduce_alphanumeric(lower, upper):
 
 # Select hashing algorithm
 def get_hashing_alg(input: str):
-    input = input.lower()
     if input == 'md5':
         return hashlib.md5
     elif input == 'sha1':
         return hashlib.sha1
     elif input == 'sha2-256':
         return hashlib.sha256
-    elif input == 'sha512':
+    elif input == 'sha2-512':
         return hashlib.sha512
+    elif input == 'sha2-224':
+        return hashlib.sha224
+    elif input == 'sha2-384':
+        return hashlib.sha384
     else:
         print("This hashing algorithm is not supported")
         exit(1)
@@ -227,38 +261,66 @@ def get_reduction_func(input: str, lower: int, upper: int):
         exit(1)
     
     
-# def crack(hash, table, path):
-#     plaintext = data.search_password(hash) # Search for password in database
-#     if plaintext:
-#         print("Password found in database: {0}".format(plaintext[0]))
-#         exit(0)
-#     try: 
-#         int(hash, 16)
-#     except:
-#         print("Hash is not in hexadecimal format")
-#         exit(1)
-#     table = RainbowTable(hashlib.md5, 10, reduce_lower(5, 10), gen_lower(5), "md5", "lowercase", 5, 6) # Create empty table
-#     if not path.endswith("/"): # Add / to path if not present
-#         path += "/"
-#     table.load_from_cvs(filename= path + table) # Load table from file
-#     hashing_alg = get_hashing_alg(table.table['alg'])
-#     reduction_func, _, _ = get_reduction_func(table.table['rest'], int(table.table['len']), int(table.table['len_max']))
-#     table.hash_func = hashing_alg
-#     table.chain_len = int(table.table['chain_len'])
-#     table.reduction_func = reduction_func
-#     result = table.crack(hash)
+def crack(hash, table, path):
+    table = RainbowTable(hashlib.md5, 10, reduce_lower(5, 10), gen_lower(5), "md5", "lowercase", 5, 6) # Create empty table
+    if not path.endswith("/"): # Add / to path if not present
+        path += "/"
+    table.load_from_cvs(filename= path + table) # Load table from file
+    hashing_alg = get_hashing_alg(table.table['alg'])
+    reduction_func, _, _ = get_reduction_func(table.table['rest'], int(table.table['len']), int(table.table['len_max']))
+    table.hash_func = hashing_alg
+    table.chain_len = int(table.table['chain_len'])
+    table.reduction_func = reduction_func
+    result = table.crack(hash)
     
-#     id = data.get_table_id(table) # Get id of table for later update of values
+    id = data.get_table_id(table) # Get id of table for later update of values
     
-#     if result is not None:
-#         #clear()
-#         print("Succes, the password is {0}".format(result))
-#         data.update_table(True, id)
-#         data.add_password_to_database(hash, result)
-#     else:
-#         #clear()
-#         print("Password not found")
-#         data.update_table(False, id) 
+    if result is not None:
+        #clear()
+        print("Succes, the password is {0}".format(result))
+        data.update_table(True, id)
+        data.add_password_to_database(hash, result)
+    else:
+        #clear()
+        print("Password not found")
+        data.update_table(False, id) 
+
+@ns.route('/crack')
+class Crack(Resource):
+    def post(self):
+        req = request.get_json()
+        table_ids = req['tables']
+        hashes = req['hashes'].split('\n')
+        result = {}
+        for hash in hashes:
+            plaintext = data.search_password(hash)
+            if plaintext:
+                result[hash] = plaintext[0]
+                hashes.remove(hash)
+        for table_id in table_ids:
+            tab = data.fetch_table_from_id(table_id)
+            # ID chain_len algorithm charset min_plaintext max_plaintext name tries successful_tries content
+            table = RainbowTable(hashlib.md5, 10, reduce_lower(5, 10), gen_lower(5), "md5", "lowercase", 5, 6) # Create empty table
+            table.load_from_csv(filename = os.path.join(RT_DIR, tab[6]))
+            hashing_alg = get_hashing_alg(tab[2])
+            reduction_func, _, _ = get_reduction_func(tab[3], int(tab[4]), int(tab[5]))
+            table.hash_func = hashing_alg
+            table.chain_len = int(tab[1])
+            table.reduction_func = reduction_func
+            for hash in hashes:
+                last_id = FcHash.query.order_by(FcHash.id.desc()).first().id
+                result[hash] = table.crack(hash)
+                if result[hash] is not None:
+                    data.update_table(True, table_id)
+                    hashes.remove(hash)
+                    data.add_password_to_database(hash, result[hash])
+                    hash_obj = FcHash(id = last_id + 1, job_id = 0, hash_type = int(get_code_from_hash_alg(tab[2])), hash = bytes(hash, 'utf-8'), result = bytes(result[hash].encode().hex(), 'utf-8'))
+                    db.session.add(hash_obj)
+                    db.session.commit()
+                else:
+                    result[hash] = "Password not found"
+                    data.update_table(False, table_id)
+        return {'items': result, 'message': 'Password lookup has finished', 'status': True}, 200
     
 def gen(length_min, length_max, restrictions, algorithm, columns, rows, filename):
     hashing_alg = get_hashing_alg(algorithm)
@@ -281,28 +343,18 @@ class Generate(Resource):
     @api.expect(rainbowTables_generateparser)
     def post(self):
         args = rainbowTables_generateparser.parse_args(request)
-        final = gen(args['length_min'], args['length_max'], args['restrictions'], args['algorithm'], args['columns'], args['rows'], args['filename'])
+        hash_alg = get_hash_alg_from_code(args['algorithm'])
+        final = gen(args['length_min'], args['length_max'], args['restrictions'], hash_alg, args['columns'], args['rows'], args['filename'])
         return final
-        
-# def search(algorithm, restrictions, length_min, length_max):
-#     res = data.get_tables(algorithm, restrictions, length_min, length_max)
-#     print("Found {0} tables".format(len(res)))
-#     for table in res:
-#         print("""
-#               name :                    {0}
-#               number of tries:          {1}
-#               successful tries:         {2}
-#               password length range:    {3} to {4} characters
-#               ID:                       {5}""".format(table[0], table[1], table[2], table[4], table[5], table[3]))
-#         print("Select a table using load path ID")
-    
+          
 def to_dict(my_tuple):
     my_dict = {
         'name': my_tuple[0],
         'range': str(my_tuple[1]) + ' - ' + str(my_tuple[2]) + ' characters',
         'algorithm': my_tuple[3].upper(),
         'number': 0 if my_tuple[4] == 0 else (my_tuple[5] / my_tuple[4] * 100),
-        'id': my_tuple[6]
+        'id': my_tuple[6],
+        'chain_len': my_tuple[7]
     }
     return my_dict
 
@@ -331,6 +383,17 @@ class Download(Resource):
 class LoadAll(Resource):
     def get(self):
         tables = data.load_all_tables()
+        new_tables = []
+        for table in tables:
+            table = to_dict(table)
+            new_tables.append(table)
+        return {'items': new_tables}, 200
+    
+    @api.expect(rainbowTables_loadparser)
+    def post(self):
+        args = rainbowTables_loadparser.parse_args(request)
+        hash_alg = get_hash_alg_from_code(args['code'])
+        tables = data.load_hash_type_tables(hash_alg)
         new_tables = []
         for table in tables:
             table = to_dict(table)
