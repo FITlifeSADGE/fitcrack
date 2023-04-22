@@ -23,10 +23,6 @@ rainbowTables_generateparser.add_argument('filename', type=str, required=True)
 rainbowTables_loadparser = reqparse.RequestParser()
 rainbowTables_loadparser.add_argument('code', type=int, required=True)
 
-rainbowTables_crackparser = reqparse.RequestParser()
-rainbowTables_crackparser.add_argument('tables', type=int, required=True)
-rainbowTables_crackparser.add_argument('hashes', type=str, required=True)
-
 # def get_args():
 #     parser = argparse.ArgumentParser(description='Supported modes - crack, gen, search, load. For more details enter crack -h, gen -h,search -h or load-h', add_help=False )
 #     parser.add_argument('mode', metavar='mode', type=str, choices=['crack', 'gen', 'search', 'load'], help='Select a function - crack/gen/search')

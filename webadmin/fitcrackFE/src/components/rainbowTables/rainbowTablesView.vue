@@ -31,7 +31,7 @@
                     value="10" v-model="MaxPlaintextLen" />
 
                   <v-text-field :loading="loading" outlined type="number" label="Number of rows" min="1"
-                    hint="Select the number of rows" persistent-hint suffix="rows" class="mb-4" value="10000"
+                    hint="Select the number of rows" persistent-hint suffix="rows" class="mb-4" value="1000"
                     v-model="RowCount" />
 
                   <v-text-field :loading="loading" outlined type="number" label="Number of columns" min="1"
@@ -130,6 +130,9 @@
                       <router-link :to="`rainbowTables/${item.id}`">
                         {{ item.name }}
                       </router-link>
+                    </template>
+                    <template v-slot:item.number="{ item }">
+                      {{ item.number }}%
                     </template>
                     <template v-slot:item.actions="{ item }">
                       <v-tooltip top>
@@ -313,6 +316,7 @@ export default {
         { text: 'Charset range', value: 'range', align: 'end' },
         { text: 'Hash algorithm', value: 'algorithm', align: 'end' },
         { text: 'Success rate', value: 'number', align: 'end' },
+        { text: 'Coverage', value: 'coverage', align: 'end' },
         { text: 'Actions', value: 'actions', align: 'end', sortable: false }
       ],
       working: false,
@@ -478,6 +482,10 @@ export default {
     },
 
     getEstimate: function (chain_len, chain_num, algorithm, charset, max_len) {
+      if (this.MinPlaintextLen > this.MaxPlaintextLen) {
+        this.hash_input = false
+        return
+      }
       if (algorithm == null || charset == null) {
         this.hash_input = false
         return
@@ -538,7 +546,6 @@ export default {
       }).then((response) => {
         this.passwords = response.data;
         this.loading = false
-        console.log(this.passwords)
       }).catch((error) => {
         // Handle error here if needed
       }).finally(() => {

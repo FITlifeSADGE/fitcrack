@@ -12,6 +12,9 @@
         {{ item.name }}
       </router-link>
     </template>
+    <template v-slot:item.number="{ item }">
+      {{ item.number }}%
+    </template>
     <template v-slot:item.actions="{ item }">
       <v-tooltip top>
         <template v-slot:activator="{ on }">
@@ -43,6 +46,7 @@ export default {
         { text: 'Charset range', value: 'range', align: 'end' },
         { text: 'Hash algorithm', value: 'algorithm', align: 'end' },
         { text: 'Success rate', value: 'number', align: 'end' },
+        { text: 'Coverage', value: 'coverage', align: 'end' },
         { text: 'Actions', value: 'actions', align: 'end', sortable: false }
       ],
       rainbowTables: []

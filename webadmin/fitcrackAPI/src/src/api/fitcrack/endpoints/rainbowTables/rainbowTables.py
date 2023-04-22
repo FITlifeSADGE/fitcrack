@@ -12,7 +12,7 @@ from flask_restx import Resource, abort
 from sqlalchemy import exc
 from src.api.fitcrack.responseModels import simpleResponse, file_content
 from settings import RT_DIR
-from src.api.fitcrack.endpoints.rainbowTables.argumentsParser import rainbowTables_estimateparser, rainbowTables_generateparser, rainbowTables_loadparser, rainbowTables_crackparser
+from src.api.fitcrack.endpoints.rainbowTables.argumentsParser import rainbowTables_estimateparser, rainbowTables_generateparser, rainbowTables_loadparser
 from src.api.fitcrack.endpoints.rainbowTables.responseModels import estimate_model, RTSet_model
 from src.database.models import FcHash
 from src.database import db
@@ -60,6 +60,24 @@ def writeTofile(data, filename):
     with open(filename, 'wb') as file:
         file.write(data)
     print("Stored rainbow table data into: ", filename)
+    
+def getcoverage(lower, upper, charset, columns, filename):
+    coverage = 0
+    lines = 0
+    with open(os.path.join(RT_DIR,filename)) as file:
+        for count, lines in enumerate(file):
+            pass
+    lines = count - 5
+    table_size = lines * columns
+    for i in range(lower, upper + 1):
+        coverage += (charset ** i)
+    coverage = (table_size/coverage)*100
+    coverage = round(coverage, 1)
+    if coverage > 100:
+        coverage = 99.9
+    if coverage == 0.0:
+        coverage = 0.1
+    return str(coverage) + "%"
     
 # Estimate time to generate a table
 def estimate_gen_time(chain_len, chain_num, algorithm, charset, max_len):
@@ -166,7 +184,7 @@ def gen_all(n):
 # Reduction functions
 def reduce_lower(lower, upper):
     def result(hash, col):
-        plaintextKey = (int(hash, 16) ^ col) % (26 ** lower) # Conver hash to number
+        plaintextKey = (int(hash[:9], 16) ^ col) % (26 ** lower) # Conver hash to number
         plaintext = ""
         diff = upper - lower
         rang = plaintextKey % (diff + 1) + lower # Get Random length
@@ -178,7 +196,7 @@ def reduce_lower(lower, upper):
 
 def reduce_upper(lower, upper):
     def result(hash, col):
-        plaintextKey = (int(hash, 16) ^ col) % (26 ** lower)
+        plaintextKey = (int(hash[:9], 16) ^ col) % (26 ** lower)
         plaintext = ""
         diff = upper - lower
         rang = plaintextKey % (diff + 1) + lower
@@ -190,7 +208,7 @@ def reduce_upper(lower, upper):
 
 def reduce_letters(lower, upper):
     def result(hash, col):
-        plaintextKey = (int(hash, 16) ^ col) % (52 ** lower)
+        plaintextKey = (int(hash[:9], 16) ^ col) % (52 ** lower)
         plaintext = ""
         diff = upper - lower
         rang = plaintextKey % (diff + 1) + lower
@@ -202,7 +220,7 @@ def reduce_letters(lower, upper):
 
 def reduce_special_chars(lower, upper):
     def result(hash, col):
-        plaintextKey = (int(hash, 16) ^ col) % (100 ** lower)
+        plaintextKey = (int(hash[:9], 16) ^ col) % (100 ** lower)
         plaintext = ""
         diff = upper - lower
         rang = plaintextKey % (diff + 1) + lower
@@ -214,7 +232,7 @@ def reduce_special_chars(lower, upper):
 
 def reduce_alphanumeric(lower, upper):
     def result(hash, col):
-        plaintextKey = (int(hash, 16) ^ col) % (62 ** lower)
+        plaintextKey = (int(hash[:9], 16) ^ col) % (62 ** lower)
         plaintext = ""
         diff = upper - lower
         rang = plaintextKey % (diff + 1) + lower
@@ -261,29 +279,29 @@ def get_reduction_func(input: str, lower: int, upper: int):
         exit(1)
     
     
-def crack(hash, table, path):
-    table = RainbowTable(hashlib.md5, 10, reduce_lower(5, 10), gen_lower(5), "md5", "lowercase", 5, 6) # Create empty table
-    if not path.endswith("/"): # Add / to path if not present
-        path += "/"
-    table.load_from_cvs(filename= path + table) # Load table from file
-    hashing_alg = get_hashing_alg(table.table['alg'])
-    reduction_func, _, _ = get_reduction_func(table.table['rest'], int(table.table['len']), int(table.table['len_max']))
-    table.hash_func = hashing_alg
-    table.chain_len = int(table.table['chain_len'])
-    table.reduction_func = reduction_func
-    result = table.crack(hash)
+# def crack(hash, table, path):
+#     table = RainbowTable(hashlib.md5, 10, reduce_lower(5, 10), gen_lower(5), "md5", "lowercase", 5, 6) # Create empty table
+#     if not path.endswith("/"): # Add / to path if not present
+#         path += "/"
+#     table.load_from_cvs(filename= path + table) # Load table from file
+#     hashing_alg = get_hashing_alg(table.table['alg'])
+#     reduction_func, _, _ = get_reduction_func(table.table['rest'], int(table.table['len']), int(table.table['len_max']))
+#     table.hash_func = hashing_alg
+#     table.chain_len = int(table.table['chain_len'])
+#     table.reduction_func = reduction_func
+#     result = table.crack(hash)
     
-    id = data.get_table_id(table) # Get id of table for later update of values
+#     id = data.get_table_id(table) # Get id of table for later update of values
     
-    if result is not None:
-        #clear()
-        print("Succes, the password is {0}".format(result))
-        data.update_table(True, id)
-        data.add_password_to_database(hash, result)
-    else:
-        #clear()
-        print("Password not found")
-        data.update_table(False, id) 
+#     if result is not None:
+#         #clear()
+#         print("Succes, the password is {0}".format(result))
+#         data.update_table(True, id)
+#         data.add_password_to_database(hash, result)
+#     else:
+#         #clear()
+#         print("Password not found")
+#         data.update_table(False, id) 
 
 @ns.route('/crack')
 class Crack(Resource):
@@ -292,7 +310,7 @@ class Crack(Resource):
         table_ids = req['tables']
         hashes = req['hashes'].split('\n')
         result = {}
-        for hash in hashes:
+        for hash in hashes.copy():
             plaintext = data.search_password(hash)
             if plaintext:
                 result[hash] = plaintext[0]
@@ -307,7 +325,7 @@ class Crack(Resource):
             table.hash_func = hashing_alg
             table.chain_len = int(tab[1])
             table.reduction_func = reduction_func
-            for hash in hashes:
+            for hash in hashes.copy():
                 last_id = FcHash.query.order_by(FcHash.id.desc()).first().id
                 result[hash] = table.crack(hash)
                 if result[hash] is not None:
@@ -348,13 +366,16 @@ class Generate(Resource):
         return final
           
 def to_dict(my_tuple):
+    _, _, charset = get_reduction_func(my_tuple[8], 1, 1)
+    coverage = getcoverage(my_tuple[1], my_tuple[2], len(charset), my_tuple[7], my_tuple[0])
     my_dict = {
         'name': my_tuple[0],
         'range': str(my_tuple[1]) + ' - ' + str(my_tuple[2]) + ' characters',
         'algorithm': my_tuple[3].upper(),
-        'number': 0 if my_tuple[4] == 0 else (my_tuple[5] / my_tuple[4] * 100),
+        'number': 0 if my_tuple[4] == 0 else (round(my_tuple[5] / my_tuple[4] * 100, 2)),
         'id': my_tuple[6],
-        'chain_len': my_tuple[7]
+        'chain_len': my_tuple[7],
+        'coverage': coverage
     }
     return my_dict
 
@@ -368,7 +389,7 @@ def all_to_dict(my_tuple):
         'range': str(my_tuple[4]) + ' - ' + str(my_tuple[5]) + ' characters',
         'name': my_tuple[6],
         'tries': my_tuple[7],
-        'successful': my_tuple[8]
+        'successful': my_tuple[8],
     }
     return my_dict
 
@@ -407,7 +428,7 @@ class Table(Resource):
     @api.marshal_with(RTSet_model)
     def get(self, id):
         """
-        Returns information about maskset with data.
+        Returns information about rainbow table with data.
         """
 
         RainbowSet = data.select_table(id)
@@ -435,7 +456,7 @@ class rainbowAdd(Resource):
     @api.marshal_with(simpleResponse)
     def post(self):
         """
-        Uploads HcStats files on server.
+        Uploads Rainbow table files on server.
         """
         # check if the post request has the file part
         if 'file' not in request.files:

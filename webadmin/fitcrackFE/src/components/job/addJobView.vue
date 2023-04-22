@@ -278,14 +278,9 @@
           </v-stepper-content>
         </v-stepper>
 
-        <v-row v-if="hosts.length == 0" justify="center">
+        <v-row v-if="this.hosts.length === 0" justify="center">
           <v-alert outlined type="warning">
             This job has no hosts assigned to it and won't be able to run until edited!
-            <div v-for="hashObj in validatedHashes" :key="hashObj.id">
-              <span v-if="hashObj.isInCache">
-                {{ hashObj.hash }} already in database, plaintext: {{ hashObj.password }}
-              </span>
-            </div>
           </v-alert>
         </v-row>
 
@@ -295,6 +290,17 @@
             estimated. Consider choosing a higher value.
           </v-alert>
         </v-row>
+
+        <v-row v-if="showAlert" justify="center">
+          <v-alert outlined type="warning">
+            <div v-for="hashObj in validatedHashes" :key="hashObj.id">
+              <span v-if="hashObj.isInCache">
+                {{ hashObj.hash }} already in database, plaintext: <b>{{ hashObj.password }}</b>
+              </span>
+            </div>
+          </v-alert>
+        </v-row>
+
 
         <v-row justify="center" class="mb-5 mt-2">
           <template-modal :inherited-name="selectedTemplateName" @templatesUpdated="fetchTemplates" />
@@ -328,7 +334,6 @@ import fcTextarea from '@/components/textarea/fc_textarea.vue'
 import hostSelector from '@/components/selector/hostSelector.vue'
 import templateModal from '@/components/jobTemplate/templateModal.vue'
 import dtPicker from '@/components/picker/datetime.vue'
-import rainbow from '@/components/job/attacks/rainbow.vue'
 
 import { mapState, mapGetters, mapMutations } from 'vuex'
 import { mapTwoWayState } from 'spyfu-vuex-helpers'
@@ -347,7 +352,6 @@ export default {
     'hybridWordlistMask': hybridWordlistMask,
     'pcfgAttack': pcfgAttack,
     'princeAttack': princeAttack,
-    'rainbow': rainbow,
     'fc-textarea': fcTextarea,
     'host-selector': hostSelector,
     'template-modal': templateModal,
@@ -376,7 +380,7 @@ export default {
   computed: {
     ...mapState('jobForm', ['selectedTemplate']),
     ...mapTwoWayState('jobForm', twoWayMap([
-      'step', 'attackSettingsTab', 'validatedHashes', 'name', 'inputMethod', 'hashList', 'hashType', 'ignoreHashes', 'startDate', 'endDate', 'template', 'comment', 'hosts', 'startNow', 'endNever', 'timeForJob', 'rainbows'
+      'step', 'attackSettingsTab', 'validatedHashes', 'name', 'inputMethod', 'hashList', 'hashType', 'ignoreHashes', 'startDate', 'endDate', 'template', 'comment', 'hosts', 'startNow', 'endNever', 'timeForJob'
     ])),
     ...mapGetters('jobForm', ['jobSettings', 'valid', 'validAttackSpecificSettings', 'keyspaceKnown']),
     templateItems() {
@@ -390,6 +394,9 @@ export default {
     },
     helpAlreadyDismissed() {
       return localStorage.getItem('dismissedHelp') == 'true'
+    },
+    showAlert() {
+      return this.validatedHashes.some(hashObj => hashObj.isInCache);
     }
   },
   watch: {

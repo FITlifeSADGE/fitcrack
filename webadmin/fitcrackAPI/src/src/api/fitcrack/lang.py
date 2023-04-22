@@ -48,6 +48,5 @@ attack_modes = {
     'hybrid (wordlist + mask)': 6,
     'hybrid (mask + wordlist)': 7,
     'prince': 8,
-    'pcfg': 9,
-    'rainbow': 10
+    'pcfg': 9
 }

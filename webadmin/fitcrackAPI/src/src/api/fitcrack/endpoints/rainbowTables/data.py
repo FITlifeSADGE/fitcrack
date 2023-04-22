@@ -45,7 +45,7 @@ cur.execute("""CREATE TABLE IF NOT EXISTS Password(
 con.commit()
 
 
-def add_table_to_database(RT: table.RainbowTable, RTname): 
+def add_table_to_database(RT: table.RainbowTable, RTname):
     chain_len = RT.chain_len
     hash_alg = RT.alg
     rest = RT.rest
@@ -91,7 +91,7 @@ def check_name(name: str):
     return cur.fetchone()
 
 def load_all_tables():
-    cur.execute("SELECT name, password_length_min, password_length_max, hashing_alg, number_of_tries, successful_tries, id, chain_len FROM RainbowTable")
+    cur.execute("SELECT name, password_length_min, password_length_max, hashing_alg, number_of_tries, successful_tries, id, chain_len, reduction_function FROM RainbowTable")
     return cur.fetchall()
 
 def select_table(id: int):
@@ -99,7 +99,7 @@ def select_table(id: int):
     return cur.fetchone()
 
 def load_hash_type_tables(alg: str):
-    cur.execute("SELECT name, password_length_min, password_length_max, hashing_alg, number_of_tries, successful_tries, id, chain_len FROM RainbowTable WHERE hashing_alg = ?", (alg,))
+    cur.execute("SELECT name, password_length_min, password_length_max, hashing_alg, number_of_tries, successful_tries, id, chain_len, reduction_function FROM RainbowTable WHERE hashing_alg = ?", (alg,))
     return cur.fetchall()
 
 def fetch_table_from_id(id: int):

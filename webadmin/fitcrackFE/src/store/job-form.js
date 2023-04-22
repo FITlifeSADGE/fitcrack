@@ -241,5 +241,4 @@ export const attacks = [
   { handler: 'hybridMaskWordlist', name: 'Hybrid Mask + Wordlist', id: 7, serverName: 'Hybrid mask+wordlist' },
   { handler: 'princeAttack', name: 'PRINCE', id: 8, serverName: 'prince' },
   { handler: 'pcfgAttack', name: 'PCFG', id: 9, serverName: 'pcfg' },
-  { handler: 'rainbow', name: 'Rainbow Tables', id: 10, serverName: 'rainbowTables' },
 ]

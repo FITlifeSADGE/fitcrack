@@ -40,8 +40,6 @@ export function attackIcon (handler) {
     case 'princeAttack':
     case 'prince':
       return 'mdi-crown'
-    case 'rainbow':
-      return 'mdi-looks'
     default:
       return 'mdi-checkbox-blank-outline'
   }
