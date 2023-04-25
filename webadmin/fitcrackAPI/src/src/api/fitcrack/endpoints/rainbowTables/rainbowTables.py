@@ -16,6 +16,9 @@ from src.api.fitcrack.endpoints.rainbowTables.argumentsParser import rainbowTabl
 from src.api.fitcrack.endpoints.rainbowTables.responseModels import estimate_model, RTSet_model
 from src.database.models import FcHash
 from src.database import db
+import pathlib
+import time
+import threading
 
 log = logging.getLogger(__name__)
 ns = api.namespace('rainbowTables', description='Endpoints for work with HcStats files.')
@@ -182,7 +185,7 @@ def gen_all(n):
 
 
 # Reduction functions
-def reduce_lower(lower, upper):
+def reduce_lower(lower, upper, hashing_alg):
     def result(hash, col):
         plaintextKey = (int(hash[:9], 16) ^ col) % (26 ** lower) # Conver hash to number
         plaintext = ""
@@ -194,7 +197,7 @@ def reduce_lower(lower, upper):
         return plaintext
     return result
 
-def reduce_upper(lower, upper):
+def reduce_upper(lower, upper, hashing_alg):
     def result(hash, col):
         plaintextKey = (int(hash[:9], 16) ^ col) % (26 ** lower)
         plaintext = ""
@@ -206,9 +209,11 @@ def reduce_upper(lower, upper):
         return plaintext
     return result
 
-def reduce_letters(lower, upper):
+def reduce_letters(lower, upper, hashing_alg):
     def result(hash, col):
-        plaintextKey = (int(hash[:9], 16) ^ col) % (52 ** lower)
+        #plaintextKey = (int(hash[:9], 16) ^ col) % (52 ** lower)
+        hash_obj = hashing_alg(hash.encode())
+        plaintextKey = ((int.from_bytes(hash_obj.digest(), byteorder='big'))^col) % (52 ** (lower))
         plaintext = ""
         diff = upper - lower
         rang = plaintextKey % (diff + 1) + lower
@@ -218,7 +223,7 @@ def reduce_letters(lower, upper):
         return plaintext
     return result
 
-def reduce_special_chars(lower, upper):
+def reduce_special_chars(lower, upper, hashing_alg):
     def result(hash, col):
         plaintextKey = (int(hash[:9], 16) ^ col) % (100 ** lower)
         plaintext = ""
@@ -230,7 +235,7 @@ def reduce_special_chars(lower, upper):
         return plaintext
     return result
 
-def reduce_alphanumeric(lower, upper):
+def reduce_alphanumeric(lower, upper, hashing_alg):
     def result(hash, col):
         plaintextKey = (int(hash[:9], 16) ^ col) % (62 ** lower)
         plaintext = ""
@@ -261,19 +266,19 @@ def get_hashing_alg(input: str):
         exit(1)
 
 # Select reduction function
-def get_reduction_func(input: str, lower: int, upper: int):
+def get_reduction_func(input: str, lower: int, upper: int, hashing_alg):
     input = input.lower()
     
     if input == 'lowercase':
-        return reduce_lower(lower, upper), gen_lower(lower), string.ascii_lowercase
+        return reduce_lower(lower, upper, hashing_alg), gen_lower(lower), string.ascii_lowercase
     elif input == 'uppercase':
-        return reduce_upper(lower, upper), gen_upper(lower), string.ascii_uppercase
+        return reduce_upper(lower, upper, hashing_alg), gen_upper(lower), string.ascii_uppercase
     elif input == 'letters':
-        return reduce_letters(lower, upper), gen_letters(lower), string.ascii_letters
+        return reduce_letters(lower, upper, hashing_alg), gen_letters(lower), string.ascii_letters
     elif input == 'all':
-        return reduce_special_chars(lower, upper), gen_special_chars(lower), string.printable
+        return reduce_special_chars(lower, upper, hashing_alg), gen_special_chars(lower), string.printable
     elif input == 'alphanumeric':
-        return reduce_alphanumeric(lower, upper), gen_alphanumeric(lower), string.ascii_letters + string.digits
+        return reduce_alphanumeric(lower, upper, hashing_alg), gen_alphanumeric(lower), string.ascii_letters + string.digits
     else:
         print("This reduction function is not supported")
         exit(1)
@@ -318,10 +323,10 @@ class Crack(Resource):
         for table_id in table_ids:
             tab = data.fetch_table_from_id(table_id)
             # ID chain_len algorithm charset min_plaintext max_plaintext name tries successful_tries content
-            table = RainbowTable(hashlib.md5, 10, reduce_lower(5, 10), gen_lower(5), "md5", "lowercase", 5, 6) # Create empty table
+            table = RainbowTable(hashlib.md5, 10, reduce_lower(5, 10, hashlib.md5), gen_lower(5), "md5", "lowercase", 5, 6) # Create empty table
             table.load_from_csv(filename = os.path.join(RT_DIR, tab[6]))
             hashing_alg = get_hashing_alg(tab[2])
-            reduction_func, _, _ = get_reduction_func(tab[3], int(tab[4]), int(tab[5]))
+            reduction_func, _, _ = get_reduction_func(tab[3], int(tab[4]), int(tab[5]), hashing_alg)
             table.hash_func = hashing_alg
             table.chain_len = int(tab[1])
             table.reduction_func = reduction_func
@@ -340,33 +345,34 @@ class Crack(Resource):
                     data.update_table(False, table_id)
         return {'items': result, 'message': 'Password lookup has finished', 'status': True}, 200
     
-def gen(length_min, length_max, restrictions, algorithm, columns, rows, filename):
-    hashing_alg = get_hashing_alg(algorithm)
-    restrictions = restrictions.strip()
-    reduction_func, gen_func, charset = get_reduction_func(restrictions, length_min, length_max)
+# def gen(length_min, length_max, restrictions, algorithm, columns, rows, filename):
+#     hashing_alg = get_hashing_alg(algorithm)
+#     restrictions = restrictions.strip()
+#     reduction_func, gen_func, charset = get_reduction_func(restrictions, length_min, length_max, hashing_alg)
     
-    table = RainbowTable(hashing_alg, columns, reduction_func, gen_func, algorithm, restrictions, length_min, length_max)
-    if filename[-4:] != ".csv": # Add .csv to filename if not present
-        filename += ".csv"
-    if data.check_name(filename):
-       return {'message': 'Table name already exists', 'status': False}, 400
-    table.gen_table(rows=rows, file=filename)
+#     table = RainbowTable(hashing_alg, columns, reduction_func, gen_func, algorithm, restrictions, length_min, length_max)
+#     if filename[-4:] != ".csv": # Add .csv to filename if not present
+#         filename += ".csv"
+#     if data.check_name(filename):
+#        return {'message': 'Table name already exists', 'status': False}, 400
+#     table.gen_table(rows=rows, file=filename)
     
-    data.add_table_to_database(table, filename)
-    return {'message': 'Table generated', 'status': True}, 200
+#     data.add_table_to_database(table, filename)
+#     return {'message': 'Table generated', 'status': True}, 200
     
-@ns.route('/generate')
-class Generate(Resource):
-    @api.marshal_with(simpleResponse)
-    @api.expect(rainbowTables_generateparser)
-    def post(self):
-        args = rainbowTables_generateparser.parse_args(request)
-        hash_alg = get_hash_alg_from_code(args['algorithm'])
-        final = gen(args['length_min'], args['length_max'], args['restrictions'], hash_alg, args['columns'], args['rows'], args['filename'])
-        return final
+# @ns.route('/generate')
+# class Generate(Resource):
+#     @api.marshal_with(simpleResponse)
+#     @api.expect(rainbowTables_generateparser)
+#     def post(self):
+#         args = rainbowTables_generateparser.parse_args(request)
+#         hash_alg = get_hash_alg_from_code(args['algorithm'])
+#         final = gen(args['length_min'], args['length_max'], args['restrictions'], hash_alg, args['columns'], args['rows'], args['filename'])
+#         return final
+    
           
 def to_dict(my_tuple):
-    _, _, charset = get_reduction_func(my_tuple[8], 1, 1)
+    _, _, charset = get_reduction_func(my_tuple[8], 1, 1, hashlib.md5)
     coverage = getcoverage(my_tuple[1], my_tuple[2], len(charset), my_tuple[7], my_tuple[0])
     my_dict = {
         'name': my_tuple[0],
@@ -380,7 +386,7 @@ def to_dict(my_tuple):
     return my_dict
 
 def all_to_dict(my_tuple):
-    _, _, charset = get_reduction_func(my_tuple[3], 1, 1)
+    _, _, charset = get_reduction_func(my_tuple[3], 1, 1, hashlib.md5)
     my_dict = {
         'id': my_tuple[0],
         'chain_len': my_tuple[1],
@@ -470,21 +476,29 @@ class rainbowAdd(Resource):
 
         uploadedFile = fileUpload(file, RT_DIR, ALLOWED_EXTENSIONS, suffix='.csv', withTimestamp=True)
         if uploadedFile:
+            file_to_rm = pathlib.Path(os.path.join(RT_DIR, uploadedFile['filename']))
             with open(os.path.join(RT_DIR, uploadedFile['filename'])) as file:
                 content = file.read()
                 if 'start_point' not in content:
+                    file_to_rm.unlink()
                     abort(500, 'Wrong file format')
                 if 'endpoint_hash' not in content:
+                    file_to_rm.unlink()
                     abort(500, 'Wrong file format')
                 if 'chain_len' not in content:
+                    file_to_rm.unlink()
                     abort(500, 'Wrong file format')
                 if 'alg' not in content:
+                    file_to_rm.unlink()
                     abort(500, 'Wrong file format')
                 if 'rest' not in content:
+                    file_to_rm.unlink()
                     abort(500, 'Wrong file format')
                 if 'len' not in content:
+                    file_to_rm.unlink()
                     abort(500, 'Wrong file format')
                 if 'len_max' not in content:
+                    file_to_rm.unlink()
                     abort(500, 'Wrong file format')
                     
                 my_dict = {}
@@ -500,4 +514,46 @@ class rainbowAdd(Resource):
                 return {'message': 'File ' + uploadedFile['filename'] + ' succesfully uploaded', 'status': True}
         else:
             abort(500, 'Wrong file format')
+
+status = True
     
+@ns.route('/status')
+class Status(Resource):
+    def get(self):
+        return {'message': 'Task finished', 'status': status}, 200
+
+
+def gen(length_min, length_max, restrictions, algorithm, columns, rows, filename):
+    global status
+    status = False
+    hashing_alg = get_hashing_alg(algorithm)
+    restrictions = restrictions.strip()
+    reduction_func, gen_func, charset = get_reduction_func(restrictions, length_min, length_max, hashing_alg)
+    
+    table = RainbowTable(hashing_alg, columns, reduction_func, gen_func, algorithm, restrictions, length_min, length_max)
+    if filename[-4:] != ".csv": # Add .csv to filename if not present
+        filename += ".csv"
+    table.gen_table(rows=rows, file=filename)
+    
+    data.add_table_to_database(table, filename)
+    status = True
+    return {'message': 'Table generated', 'status': True}, 200
+    
+@ns.route('/generate')
+class Generate(Resource):
+    @api.marshal_with(simpleResponse)
+    @api.expect(rainbowTables_generateparser)
+    def post(self):
+        global status
+        if not status:
+            return {'message': 'Task already running', 'status': False}, 400
+        args = rainbowTables_generateparser.parse_args(request)
+        filename = args['filename']
+        if filename[-4:] != ".csv": # Add .csv to filename if not present
+            filename += ".csv"
+        if data.check_name(filename):
+            return {'message': 'Table name already exists', 'status': False}, 400
+        hash_alg = get_hash_alg_from_code(args['algorithm'])
+        thread = threading.Thread(target=gen, args=(args['length_min'], args['length_max'], args['restrictions'], hash_alg, args['columns'], args['rows'], args['filename']))
+        thread.start()
+        return {'message': 'Started', 'status': status}, 200

@@ -51,6 +51,8 @@ export const empty = {
   minElemInChain: 1,
   maxElemInChain: 8,
   generateRandomRules: 0,
+  // rainbow tables
+  rainbows: [],
   // other
   optimized: true,
   startNow: true,

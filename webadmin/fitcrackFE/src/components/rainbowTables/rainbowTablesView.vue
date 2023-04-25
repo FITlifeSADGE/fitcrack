@@ -287,7 +287,6 @@ import { twoWayMap } from '@/store'
 import tile from '@/components/tile/fc_tile.vue'
 import fileCreator from "@/components/fileUploader/fileCreator.vue"
 import RainbowSelector from '@/components/selector/rainbowSelector.vue'
-import VueProgressBar from 'vue-progressbar'
 
 
 
@@ -490,7 +489,10 @@ export default {
         this.hash_input = false
         return
       }
-      console.log(algorithm['code'])
+      if (this.MinPlaintextLen == null || this.MaxPlaintextLen == null || this.RowCount == null || this.ColumnCount == null) {
+        this.hash_input = false
+        return
+      }
       this.hash_input = true
       this.axios.post(this.$serverAddr + '/rainbowTables/estimate', {
         "chain_len": chain_len,
@@ -503,27 +505,27 @@ export default {
         this.message = 'Estimated time to complete: ' + Math.floor(this.estimate / 60) + ' minutes and ' + (this.estimate % 60) + ' seconds'
       })
     },
-    genRainbowTable: function (length_min, length_max, restrictions, algorithm, columns, rows, filename) {
-      this.generated = false
-      this.loading = true
-      this.axios.post(this.$serverAddr + '/rainbowTables/generate', {
-        "length_min": length_min,
-        "length_max": length_max,
-        "restrictions": restrictions['name'],
-        "algorithm": algorithm['code'],
-        "columns": columns,
-        "rows": rows,
-        "filename": filename
-      }).then((response) => {
-        this.loading = false
-        this.generated = response.data['status']
-        this.loadAllRainbowTables()
-      }).catch((error) => {
-        // Handle error here if needed
-      }).finally(() => {
-        this.loading = false
-      })
-    },
+    // genRainbowTable: function (length_min, length_max, restrictions, algorithm, columns, rows, filename) {
+    //   this.generated = false
+    //   this.loading = true
+    //   this.axios.post(this.$serverAddr + '/rainbowTables/generate', {
+    //     "length_min": length_min,
+    //     "length_max": length_max,
+    //     "restrictions": restrictions['name'],
+    //     "algorithm": algorithm['code'],
+    //     "columns": columns,
+    //     "rows": rows,
+    //     "filename": filename
+    //   }).then((response) => {
+    //     this.loading = false
+    //     this.generated = response.data['status']
+    //     this.loadAllRainbowTables()
+    //   }).catch((error) => {
+    //     // Handle error here if needed
+    //   }).finally(() => {
+    //     this.loading = false
+    //   })
+    // },
     loadAllRainbowTables: function () {
       this.loading = true
       this.axios.get(this.$serverAddr + '/rainbowTables/loadall').then((response) => {
@@ -550,6 +552,44 @@ export default {
         // Handle error here if needed
       }).finally(() => {
         this.loading = false
+      })
+    },
+    genRainbowTable: async function (length_min, length_max, restrictions, algorithm, columns, rows, filename) {
+      this.generated = false
+      this.loading = true
+      var resp_mess = ''
+      this.axios.post(this.$serverAddr + '/rainbowTables/generate', {
+        "length_min": length_min,
+        "length_max": length_max,
+        "restrictions": restrictions['name'],
+        "algorithm": algorithm['code'],
+        "columns": columns,
+        "rows": rows,
+        "filename": filename
+      }).then((response) => {
+        resp_mess= response.data.message
+        let interval = setInterval(() => {
+          this.axios.get(this.$serverAddr + '/rainbowTables/status')
+            .then(response => {
+              if (response.data.status === true) {
+                clearInterval(interval)
+                this.loading = false
+                this.generated = response.data['status']
+                this.loadAllRainbowTables()
+              }
+            })
+            .catch(error => {
+              console.log(error)
+            })
+        }, 10000)
+      }).catch((error) => {
+        if (error.response.data.message === "Table name already exists") {
+          this.generated = true
+          this.loading = false
+        }
+        // Handle error here if needed
+      }).finally(() => {
+        //this.loading = false
       })
     }
   }
