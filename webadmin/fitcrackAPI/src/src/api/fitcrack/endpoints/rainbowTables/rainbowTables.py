@@ -17,7 +17,6 @@ from src.api.fitcrack.endpoints.rainbowTables.responseModels import estimate_mod
 from src.database.models import FcHash
 from src.database import db
 import pathlib
-import time
 import threading
 
 log = logging.getLogger(__name__)
@@ -81,6 +80,26 @@ def getcoverage(lower, upper, charset, columns, filename):
     if coverage == 0.0:
         coverage = 0.1
     return str(coverage) + "%"
+
+def estimate_size(hash_alg, min_plaintext_len, rows):
+    hash_len = 32
+    if hash_alg == 'md5':
+        hash_len = 32
+    elif hash_alg == 'sha1':
+        hash_len = 40
+    elif hash_alg == 'sha2-256':
+        hash_len = 64
+    elif hash_alg == 'sha2-512':
+        hash_len = 128
+    elif hash_alg == 'sha2-384':
+        hash_len = 96
+    elif hash_alg == 'sha2-224':
+        hash_len = 56
+    
+    row_size = hash_len + min_plaintext_len + 1
+    
+    row_size = row_size * rows
+    return row_size
     
 # Estimate time to generate a table
 def estimate_gen_time(chain_len, chain_num, algorithm, charset, max_len):
@@ -283,94 +302,7 @@ def get_reduction_func(input: str, lower: int, upper: int, hashing_alg):
         print("This reduction function is not supported")
         exit(1)
     
-    
-# def crack(hash, table, path):
-#     table = RainbowTable(hashlib.md5, 10, reduce_lower(5, 10), gen_lower(5), "md5", "lowercase", 5, 6) # Create empty table
-#     if not path.endswith("/"): # Add / to path if not present
-#         path += "/"
-#     table.load_from_cvs(filename= path + table) # Load table from file
-#     hashing_alg = get_hashing_alg(table.table['alg'])
-#     reduction_func, _, _ = get_reduction_func(table.table['rest'], int(table.table['len']), int(table.table['len_max']))
-#     table.hash_func = hashing_alg
-#     table.chain_len = int(table.table['chain_len'])
-#     table.reduction_func = reduction_func
-#     result = table.crack(hash)
-    
-#     id = data.get_table_id(table) # Get id of table for later update of values
-    
-#     if result is not None:
-#         #clear()
-#         print("Succes, the password is {0}".format(result))
-#         data.update_table(True, id)
-#         data.add_password_to_database(hash, result)
-#     else:
-#         #clear()
-#         print("Password not found")
-#         data.update_table(False, id) 
-
-@ns.route('/crack')
-class Crack(Resource):
-    def post(self):
-        req = request.get_json()
-        table_ids = req['tables']
-        hashes = req['hashes'].split('\n')
-        result = {}
-        for hash in hashes.copy():
-            plaintext = data.search_password(hash)
-            if plaintext:
-                result[hash] = plaintext[0]
-                hashes.remove(hash)
-        for table_id in table_ids:
-            tab = data.fetch_table_from_id(table_id)
-            # ID chain_len algorithm charset min_plaintext max_plaintext name tries successful_tries content
-            table = RainbowTable(hashlib.md5, 10, reduce_lower(5, 10, hashlib.md5), gen_lower(5), "md5", "lowercase", 5, 6) # Create empty table
-            table.load_from_csv(filename = os.path.join(RT_DIR, tab[6]))
-            hashing_alg = get_hashing_alg(tab[2])
-            reduction_func, _, _ = get_reduction_func(tab[3], int(tab[4]), int(tab[5]), hashing_alg)
-            table.hash_func = hashing_alg
-            table.chain_len = int(tab[1])
-            table.reduction_func = reduction_func
-            for hash in hashes.copy():
-                last_id = FcHash.query.order_by(FcHash.id.desc()).first().id
-                result[hash] = table.crack(hash)
-                if result[hash] is not None:
-                    data.update_table(True, table_id)
-                    hashes.remove(hash)
-                    data.add_password_to_database(hash, result[hash])
-                    hash_obj = FcHash(id = last_id + 1, job_id = 0, hash_type = int(get_code_from_hash_alg(tab[2])), hash = bytes(hash, 'utf-8'), result = bytes(result[hash].encode().hex(), 'utf-8'))
-                    db.session.add(hash_obj)
-                    db.session.commit()
-                else:
-                    result[hash] = "Password not found"
-                    data.update_table(False, table_id)
-        return {'items': result, 'message': 'Password lookup has finished', 'status': True}, 200
-    
-# def gen(length_min, length_max, restrictions, algorithm, columns, rows, filename):
-#     hashing_alg = get_hashing_alg(algorithm)
-#     restrictions = restrictions.strip()
-#     reduction_func, gen_func, charset = get_reduction_func(restrictions, length_min, length_max, hashing_alg)
-    
-#     table = RainbowTable(hashing_alg, columns, reduction_func, gen_func, algorithm, restrictions, length_min, length_max)
-#     if filename[-4:] != ".csv": # Add .csv to filename if not present
-#         filename += ".csv"
-#     if data.check_name(filename):
-#        return {'message': 'Table name already exists', 'status': False}, 400
-#     table.gen_table(rows=rows, file=filename)
-    
-#     data.add_table_to_database(table, filename)
-#     return {'message': 'Table generated', 'status': True}, 200
-    
-# @ns.route('/generate')
-# class Generate(Resource):
-#     @api.marshal_with(simpleResponse)
-#     @api.expect(rainbowTables_generateparser)
-#     def post(self):
-#         args = rainbowTables_generateparser.parse_args(request)
-#         hash_alg = get_hash_alg_from_code(args['algorithm'])
-#         final = gen(args['length_min'], args['length_max'], args['restrictions'], hash_alg, args['columns'], args['rows'], args['filename'])
-#         return final
-    
-          
+              
 def to_dict(my_tuple):
     _, _, charset = get_reduction_func(my_tuple[8], 1, 1, hashlib.md5)
     coverage = getcoverage(my_tuple[1], my_tuple[2], len(charset), my_tuple[7], my_tuple[0])
@@ -516,6 +448,7 @@ class rainbowAdd(Resource):
             abort(500, 'Wrong file format')
 
 status = True
+items = []
     
 @ns.route('/status')
 class Status(Resource):
@@ -554,6 +487,71 @@ class Generate(Resource):
         if data.check_name(filename):
             return {'message': 'Table name already exists', 'status': False}, 400
         hash_alg = get_hash_alg_from_code(args['algorithm'])
+        if ((estimated_size:= estimate_size(hash_alg, args['length_min'], args['rows'])) > 2000000000):
+            return {'message': 'Table size could exceed 2GB, current size estimate is ' + str(estimated_size/1000000000) + 'GB', 'status': False}, 400
         thread = threading.Thread(target=gen, args=(args['length_min'], args['length_max'], args['restrictions'], hash_alg, args['columns'], args['rows'], args['filename']))
         thread.start()
         return {'message': 'Started', 'status': status}, 200
+    
+
+def tab_crack(hashes, table_ids):
+    global items
+    global status
+    status = False
+    result = {}
+    for hash in hashes.copy():
+        plaintext = data.search_password(hash)
+        if plaintext:
+            result[hash] = plaintext[0]
+            hashes.remove(hash)
+    for table_id in table_ids:
+        tab = data.fetch_table_from_id(table_id)
+        result['alg'] = tab[2]
+        # ID chain_len algorithm charset min_plaintext max_plaintext name tries successful_tries content
+        table = RainbowTable(hashlib.md5, 10, reduce_lower(5, 10, hashlib.md5), gen_lower(5), "md5", "lowercase", 5, 6) # Create empty table
+        table.load_from_csv(filename = os.path.join(RT_DIR, tab[6]))
+        hashing_alg = get_hashing_alg(tab[2])
+        reduction_func, _, _ = get_reduction_func(tab[3], int(tab[4]), int(tab[5]), hashing_alg)
+        table.hash_func = hashing_alg
+        table.chain_len = int(tab[1])
+        table.reduction_func = reduction_func
+        for hash in hashes.copy():
+            result[hash] = table.crack(hash)
+            if result[hash] is not None:
+                data.update_table(True, table_id)
+                hashes.remove(hash)
+                data.add_password_to_database(hash, result[hash])
+            else:
+                result[hash] = "Password not found"
+                data.update_table(False, table_id)
+    status = True
+    items = result
+    return {'items': result, 'message': 'Password lookup has finished', 'status': True}, 200
+   
+@ns.route('/crack')
+class Crack(Resource):
+    def post(self):
+        if not status:
+            return {'message': 'Task already running', 'status': False}, 400
+        req = request.get_json()
+        table_ids = req['tables']
+        hashes = req['hashes'].split('\n')
+        thread = threading.Thread(target=tab_crack, args=(hashes, table_ids))
+        thread.start()
+        return {'message': 'Started', 'status': status}, 200
+    
+@ns.route('/items')
+class Items(Resource):
+    def get(self):
+        global items
+        try:
+            hash_type = int(get_code_from_hash_alg(items['alg']))
+        except:
+            hash_type = 0
+        for key,item in items.items():
+            last_id = FcHash.query.order_by(FcHash.id.desc()).first().id
+            if (item != 'Password not found') and (key != 'alg') and (not FcHash.query.filter_by(hash = bytes(key, 'utf-8')).first()) :
+                hash_obj = FcHash(id = last_id + 1, job_id = 0, hash_type = hash_type, hash = bytes(key, 'utf-8'), result = bytes(item.encode().hex(), 'utf-8'))
+                db.session.add(hash_obj)
+                db.session.commit()
+        return {'items': items, 'status': status}, 200

@@ -328,12 +328,8 @@ export default {
       dialog: false,
       estimate: 0,
       MinPlaintextLen: 5,
-      MinPlaintextLenBrowse: 5,
       MaxPlaintextLen: 10,
-      MaxPlaintextLenBrowse: 10,
       charsetType: null,
-      CharsetTypeBrowse: null,
-      hashTypeBrowse: null,
       RowCount: 1000,
       ColumnCount: 1000,
       generating: false,
@@ -489,7 +485,7 @@ export default {
         this.hash_input = false
         return
       }
-      if (this.MinPlaintextLen == null || this.MaxPlaintextLen == null || this.RowCount == null || this.ColumnCount == null) {
+      if (this.MinPlaintextLen == null || this.MaxPlaintextLen == null || this.RowCount == null || this.ColumnCount == null || this.MinPlaintextLen == "" || this.MaxPlaintextLen == "" || this.RowCount == "" || this.ColumnCount == "") {
         this.hash_input = false
         return
       }
@@ -505,27 +501,6 @@ export default {
         this.message = 'Estimated time to complete: ' + Math.floor(this.estimate / 60) + ' minutes and ' + (this.estimate % 60) + ' seconds'
       })
     },
-    // genRainbowTable: function (length_min, length_max, restrictions, algorithm, columns, rows, filename) {
-    //   this.generated = false
-    //   this.loading = true
-    //   this.axios.post(this.$serverAddr + '/rainbowTables/generate', {
-    //     "length_min": length_min,
-    //     "length_max": length_max,
-    //     "restrictions": restrictions['name'],
-    //     "algorithm": algorithm['code'],
-    //     "columns": columns,
-    //     "rows": rows,
-    //     "filename": filename
-    //   }).then((response) => {
-    //     this.loading = false
-    //     this.generated = response.data['status']
-    //     this.loadAllRainbowTables()
-    //   }).catch((error) => {
-    //     // Handle error here if needed
-    //   }).finally(() => {
-    //     this.loading = false
-    //   })
-    // },
     loadAllRainbowTables: function () {
       this.loading = true
       this.axios.get(this.$serverAddr + '/rainbowTables/loadall').then((response) => {
@@ -537,27 +512,9 @@ export default {
         this.loading = false
       })
     },
-    CrackEnteredHashes: function (hashList, rainbows) {
-      this.loading = true
-      for (var i = 0; i < rainbows.length; i++) {
-        this.IDs.push(rainbows[i].id)
-      }
-      this.axios.post(this.$serverAddr + '/rainbowTables/crack', {
-        "tables": this.IDs,
-        "hashes": hashList
-      }).then((response) => {
-        this.passwords = response.data;
-        this.loading = false
-      }).catch((error) => {
-        // Handle error here if needed
-      }).finally(() => {
-        this.loading = false
-      })
-    },
     genRainbowTable: async function (length_min, length_max, restrictions, algorithm, columns, rows, filename) {
       this.generated = false
       this.loading = true
-      var resp_mess = ''
       this.axios.post(this.$serverAddr + '/rainbowTables/generate', {
         "length_min": length_min,
         "length_max": length_max,
@@ -567,7 +524,6 @@ export default {
         "rows": rows,
         "filename": filename
       }).then((response) => {
-        resp_mess= response.data.message
         let interval = setInterval(() => {
           this.axios.get(this.$serverAddr + '/rainbowTables/status')
             .then(response => {
@@ -583,7 +539,7 @@ export default {
             })
         }, 10000)
       }).catch((error) => {
-        if (error.response.data.message === "Table name already exists") {
+        if (error.response.data.message === "Table name already exists" || error.response.data.message.includes("Table size could exceed 2GB")) {
           this.generated = true
           this.loading = false
         }
@@ -591,7 +547,39 @@ export default {
       }).finally(() => {
         //this.loading = false
       })
-    }
+    },
+    CrackEnteredHashes: async function (hashList, rainbows) {
+      this.loading = true
+      for (var i = 0; i < rainbows.length; i++) {
+        this.IDs.push(rainbows[i].id)
+      }
+      this.axios.post(this.$serverAddr + '/rainbowTables/crack', {
+        "tables": this.IDs,
+        "hashes": hashList
+      }).then((response) => {
+        let interval = setInterval(() => {
+          this.axios.get(this.$serverAddr + '/rainbowTables/status')
+            .then(response => {
+              if (response.data.status === true) {
+                clearInterval(interval)
+                this.axios.get(this.$serverAddr + '/rainbowTables/items')
+                  .then(response => {
+                    this.passwords = response.data
+                  })
+                this.loading = false
+                this.loadAllRainbowTables()
+              }
+            })
+            .catch(error => {
+              console.log(error)
+            })
+        }, 5000)
+      }).catch((error) => {
+        // Handle error here if needed
+      }).finally(() => {
+        //this.loading = false
+      })
+    },
   }
 }
 </script>
