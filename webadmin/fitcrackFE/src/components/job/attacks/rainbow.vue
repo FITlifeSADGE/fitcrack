@@ -1,3 +1,4 @@
+<!-- Store selected rainbow table in the job-form.js list called 'rainbows' -->
 <template>
     <div>
         <v-card-title>

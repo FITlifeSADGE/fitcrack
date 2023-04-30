@@ -292,7 +292,8 @@
         </v-row>
 
         <v-row v-if="showAlert" justify="center">
-          <v-alert outlined type="warning">
+          
+          <v-alert outlined type="warning" style="max-height: 100px; overflow-y: auto;">
             <div v-for="hashObj in validatedHashes" :key="hashObj.id">
               <span v-if="hashObj.isInCache">
                 {{ hashObj.hash }} already in database, plaintext: <b>{{ hashObj.password }}</b>

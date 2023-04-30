@@ -42,11 +42,11 @@ export default {
   data() {
     return {
       headers: [
-        { text: 'Name', align: 'start', value: 'name' },
-        { text: 'Charset range', value: 'range', align: 'end' },
-        { text: 'Hash algorithm', value: 'algorithm', align: 'end' },
-        { text: 'Success rate', value: 'number', align: 'end' },
-        { text: 'Coverage', value: 'coverage', align: 'end' },
+        { text: 'Name', align: 'start', value: 'name' }, //table name
+        { text: 'Charset range', value: 'range', align: 'end' }, //password range
+        { text: 'Hash algorithm', value: 'algorithm', align: 'end' }, //hash algorithm
+        { text: 'Success rate', value: 'number', align: 'end' }, //successful tries / total tries
+        { text: 'Coverage', value: 'coverage', align: 'end' }, //table coverage for password charset + range
         { text: 'Actions', value: 'actions', align: 'end', sortable: false }
       ],
       rainbowTables: []
@@ -58,10 +58,12 @@ export default {
       'hashList', 'hashType', 'rainbows'
     ])),
     hashTypeCode() {
+      //default to MD5
       return this.hashType ? this.hashType.code : 0;
     }
   },
   watch: {
+    //reload rainbow tables when hashType changes
     hashType(newValue, oldValue) {
       if (newValue !== oldValue) {
         this.getData();
@@ -72,6 +74,7 @@ export default {
     fmt,
     getData: function () {
       this.loading = true;
+      //load only rainbow tables with the hashType selected
       this.axios.post(this.$serverAddr + '/rainbowTables/loadall', {"code": this.hashTypeCode }).then((response) => {
         this.rainbowTables = response.data;
         this.loading = false

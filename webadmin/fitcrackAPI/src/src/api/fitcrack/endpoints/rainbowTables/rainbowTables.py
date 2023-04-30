@@ -25,7 +25,15 @@ ns = api.namespace('rainbowTables', description='Endpoints for work with HcStats
 ALLOWED_EXTENSIONS = set(['csv'])
 CSV_FIELDNAMES = ['start_point', 'endpoint_hash']
 
+
 def get_hash_alg_from_code(code):
+    """Used to retrieve the hash name from the hash code
+
+    Args:
+        code (int): Hash code
+    Returns:
+        Hash name (str)
+    """
     mapping = {
     0: 'md5',
     100: 'sha1',
@@ -42,6 +50,13 @@ def get_hash_alg_from_code(code):
     return mapping[code]
 
 def get_code_from_hash_alg(alg):
+    """Used to retrieve the hash code from the hash name
+
+    Args:
+        alg (str): Hash name
+    Returns:
+        Hash code (int)
+    """
     mapping = {
         'md5': 0,
         'sha1': 100,
@@ -58,12 +73,29 @@ def get_code_from_hash_alg(alg):
     return mapping[alg]
 
 def writeTofile(data, filename):
+    """Used to convert binary data to proper format and write it to a file
+
+    Args:
+        data (bytes): Binary data
+        filename (str): File name
+    """
     # Convert binary data to proper format and write it on Hard Disk
     with open(filename, 'wb') as file:
         file.write(data)
     print("Stored rainbow table data into: ", filename)
     
 def getcoverage(lower, upper, charset, columns, filename):
+    """Used to calculate the coverage of a rainbow table
+
+    Args:
+        lower (int): Minimum length of the plaintext
+        upper (int): Maximum length of the plaintext
+        charset (int): Number of characters in the charset
+        columns (int): Number of columns in the rainbow table
+        filename (str): File name of the rainbow table
+    Returns:
+        Table coverage (str)
+    """
     coverage = 0
     lines = 0
     with open(os.path.join(RT_DIR,filename)) as file:
@@ -82,6 +114,15 @@ def getcoverage(lower, upper, charset, columns, filename):
     return str(coverage) + "%"
 
 def estimate_size(hash_alg, min_plaintext_len, rows):
+    """Used to estimate the size of a rainbow table
+
+    Args:
+        hash_alg (str): Hash algorithm name
+        min_plaintext_len (int): Minimum length of the plaintext
+        rows (int): Number of rows in the rainbow table
+    Returns:
+        Estimated size of the rainbow table (int)
+    """
     hash_len = 32
     if hash_alg == 'md5':
         hash_len = 32
@@ -103,6 +144,17 @@ def estimate_size(hash_alg, min_plaintext_len, rows):
     
 # Estimate time to generate a table
 def estimate_gen_time(chain_len, chain_num, algorithm, charset, max_len):
+    """Used to estimate the time to generate a rainbow table
+
+    Args:
+        chain_len (int): Number of columns in the rainbow table
+        chain_num (int): Number of rows in the rainbow table
+        algorithm (str): Hash algorithm name
+        charset (str): Number of characters in the charset
+        max_len (int): Maximum length of the plaintext
+    Returns:
+        Estimated time to generate the rainbow table (int)
+    """
     default_chars = 26
     charset = len(charset)
     diff = charset - default_chars
@@ -140,6 +192,7 @@ def estimate_gen_time(chain_len, chain_num, algorithm, charset, max_len):
     hashes_per_sec = 300000
     return((chain_len * chain_num * multiply_char * multiply_alg * multiply_len) / hashes_per_sec)
 
+# Rainbow table generation estimate endpoint
 @ns.route('/estimate')
 class Estimate(Resource):
     @api.marshal_with(estimate_model)
@@ -151,7 +204,6 @@ class Estimate(Resource):
 
         return {"time": time}, 200
 
-# Check if given arguments are valid
 
 # Word generator functions
 def gen_lower(n):
@@ -304,6 +356,13 @@ def get_reduction_func(input: str, lower: int, upper: int, hashing_alg):
     
               
 def to_dict(my_tuple):
+    """Used to convert a tuple to a dictionary
+
+    Args:
+        my_tuple (tuple): Tuple to be converted
+    Returns:
+        my_dict (dict): Dictionary with the same values as the tuple
+    """
     _, _, charset = get_reduction_func(my_tuple[8], 1, 1, hashlib.md5)
     coverage = getcoverage(my_tuple[1], my_tuple[2], len(charset), my_tuple[7], my_tuple[0])
     my_dict = {
@@ -318,6 +377,12 @@ def to_dict(my_tuple):
     return my_dict
 
 def all_to_dict(my_tuple):
+    """Used to convert a tuple to a dictionary
+    Args:
+        my_tuple (tuple): Tuple to be converted
+    Returns:
+        my_dict (dict): Dictionary with the same values as the tuple
+    """
     _, _, charset = get_reduction_func(my_tuple[3], 1, 1, hashlib.md5)
     my_dict = {
         'id': my_tuple[0],
@@ -331,15 +396,18 @@ def all_to_dict(my_tuple):
     }
     return my_dict
 
+# Table download endpoint
 @ns.route('/download/<filename>')
 class Download(Resource):
     def get(self, filename):
         if not data.check_name(filename):
             return {'message': 'Table does not exist', 'status': False}, 400
         return send_file(RT_DIR + '/' + filename, as_attachment=True)
-    
+
+# Loading tables from the database endpoint
 @ns.route('/loadall')
 class LoadAll(Resource):
+    # Loading all tables from the database
     def get(self):
         tables = data.load_all_tables()
         new_tables = []
@@ -347,7 +415,7 @@ class LoadAll(Resource):
             table = to_dict(table)
             new_tables.append(table)
         return {'items': new_tables}, 200
-    
+    # Loading tables of the given hash type from the database
     @api.expect(rainbowTables_loadparser)
     def post(self):
         args = rainbowTables_loadparser.parse_args(request)
@@ -359,7 +427,7 @@ class LoadAll(Resource):
             new_tables.append(table)
         return {'items': new_tables}, 200
     
-    
+# Retrieving information about a specific table from the database endpoint
 @ns.route('/<id>')
 class Table(Resource):
 
@@ -387,7 +455,8 @@ class Table(Resource):
             'successful': RainbowSet['successful'],
             'data': content
         }
-        
+
+# Uploading a table endpoint
 @ns.route('/add')
 class rainbowAdd(Resource):
 
@@ -411,8 +480,9 @@ class rainbowAdd(Resource):
             file_to_rm = pathlib.Path(os.path.join(RT_DIR, uploadedFile['filename']))
             with open(os.path.join(RT_DIR, uploadedFile['filename'])) as file:
                 content = file.read()
+                # Check for the correct format of the file
                 if 'start_point' not in content:
-                    file_to_rm.unlink()
+                    file_to_rm.unlink() # Remove the file
                     abort(500, 'Wrong file format')
                 if 'endpoint_hash' not in content:
                     file_to_rm.unlink()
@@ -449,7 +519,8 @@ class rainbowAdd(Resource):
 
 status = True
 items = []
-    
+
+# Checks the status of table generating or table cracking
 @ns.route('/status')
 class Status(Resource):
     def get(self):
@@ -457,6 +528,19 @@ class Status(Resource):
 
 
 def gen(length_min, length_max, restrictions, algorithm, columns, rows, filename):
+    """Used to generate a rainbow table.
+
+    Args:
+        length_min (int): Minimum length of the password
+        length_max (int): Maximum length of the password
+        restrictions (str): Character set name
+        algorithm (str): Hashing algorithm name
+        columns (int): Number of columns
+        rows (int): Number of rows
+        filename (str): Name of the file
+    Returns:
+        SimpleResponse: Message and status
+    """
     global status
     status = False
     hashing_alg = get_hashing_alg(algorithm)
@@ -471,7 +555,8 @@ def gen(length_min, length_max, restrictions, algorithm, columns, rows, filename
     data.add_table_to_database(table, filename)
     status = True
     return {'message': 'Table generated', 'status': True}, 200
-    
+
+# Generating a table endpoint
 @ns.route('/generate')
 class Generate(Resource):
     @api.marshal_with(simpleResponse)
@@ -481,20 +566,31 @@ class Generate(Resource):
         if not status:
             return {'message': 'Task already running', 'status': False}, 400
         args = rainbowTables_generateparser.parse_args(request)
+        # Check if the filename already exists
         filename = args['filename']
         if filename[-4:] != ".csv": # Add .csv to filename if not present
             filename += ".csv"
         if data.check_name(filename):
             return {'message': 'Table name already exists', 'status': False}, 400
         hash_alg = get_hash_alg_from_code(args['algorithm'])
+        # Check if the table size is too big
         if ((estimated_size:= estimate_size(hash_alg, args['length_min'], args['rows'])) > 2000000000):
             return {'message': 'Table size could exceed 2GB, current size estimate is ' + str(estimated_size/1000000000) + 'GB', 'status': False}, 400
+        # Start the table generation in a new thread and respond with task started
         thread = threading.Thread(target=gen, args=(args['length_min'], args['length_max'], args['restrictions'], hash_alg, args['columns'], args['rows'], args['filename']))
         thread.start()
         return {'message': 'Started', 'status': status}, 200
     
 
 def tab_crack(hashes, table_ids):
+    """Used to crack hashes with rainbow tables.
+
+    Args:
+        hashes (list): List of hashes
+        table_ids (list): List of table IDs
+    Returns:
+        SimpleResponse and list of cracked hashes
+    """
     global items
     global status
     status = False
@@ -528,6 +624,7 @@ def tab_crack(hashes, table_ids):
     items = result
     return {'items': result, 'message': 'Password lookup has finished', 'status': True}, 200
    
+# Cracking hashes endpoint
 @ns.route('/crack')
 class Crack(Resource):
     def post(self):
@@ -539,7 +636,8 @@ class Crack(Resource):
         thread = threading.Thread(target=tab_crack, args=(hashes, table_ids))
         thread.start()
         return {'message': 'Started', 'status': status}, 200
-    
+
+# Retreiving cracked hashes endpoint 
 @ns.route('/items')
 class Items(Resource):
     def get(self):
@@ -548,6 +646,7 @@ class Items(Resource):
             hash_type = int(get_code_from_hash_alg(items['alg']))
         except:
             hash_type = 0
+        # Add cracked hashes to database, because threading and SQLAlchemy don't work well together and won't allow us to add to the database in a different thread
         for key,item in items.items():
             last_id = FcHash.query.order_by(FcHash.id.desc()).first().id
             if (item != 'Password not found') and (key != 'alg') and (not FcHash.query.filter_by(hash = bytes(key, 'utf-8')).first()) :

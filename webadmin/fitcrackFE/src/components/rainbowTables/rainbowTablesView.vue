@@ -22,22 +22,23 @@
               </v-expansion-panel-header>
               <v-expansion-panel-content>
                 <v-card-text>
+                  <!-- Lower password range limit -->
                   <v-text-field :loading="loading" outlined type="number" label="Min plaintext len" min="1" max="30"
                     hint="Select the minimum length of plaintexts" persistent-hint suffix="characters" class="mb-4"
                     value="5" v-model="MinPlaintextLen" />
-
+                  <!-- Upper password range limit -->
                   <v-text-field :loading="loading" outlined type="number" label="Max plaintext len" min="1" max="30"
                     hint="Select the maximum length of plaintexts" persistent-hint suffix="characters" class="mb-4"
                     value="10" v-model="MaxPlaintextLen" />
-
+                  <!-- Number of rows -->
                   <v-text-field :loading="loading" outlined type="number" label="Number of rows" min="1"
                     hint="Select the number of rows" persistent-hint suffix="rows" class="mb-4" value="1000"
                     v-model="RowCount" />
-
+                  <!-- Number of columns -->
                   <v-text-field :loading="loading" outlined type="number" label="Number of columns" min="1"
                     hint="Select the number of columns" persistent-hint suffix="columns" class="mb-4" value="1000"
                     v-model="ColumnCount" />
-
+                  <!-- Hash algorithm, taken from addJobView, removed unsupported hashes-->
                   <v-autocomplete id="hash-type-select" v-model="hashType" editable validate-on-blur clearable
                     label="Select hash type" :items="hashTypes" item-text="name" :filter="hashTypeFilter" return-object
                     required hide-details single-line flat solo-inverted no-data-text="No matching hash type">
@@ -47,7 +48,7 @@
                       </v-list-item-content>
                     </template>
                   </v-autocomplete>
-
+                  <!-- Character sets -->
                   <v-autocomplete id="charset-type-select" editable validate-on-blur clearable label="Select charset"
                     :items="charsetTypes" item-text="name" return-object required hide-details single-line flat
                     solo-inverted no-data-text="No matching charset" v-model="charsetType">
@@ -73,6 +74,7 @@
                       </v-card-text>
                     </v-card>
                   </v-dialog>
+                  <!-- Calculate the time reuired to generate a table -->
                   <v-dialog v-model="generating" class="text-right pa-3">
                     <template v-slot:activator="{ on }">
                       <v-btn v-on="on" class="d-inline-block" color="primary" outlined
@@ -81,6 +83,7 @@
                       </v-btn>
                     </template>
                     <v-card>
+                      <!-- If all inputs are valid -->
                       <v-card-text v-if="hash_input">
                         <b style="font-size: 15px; margin-bottom: 20px;">{{ message }}</b>
                         <div>
@@ -90,6 +93,7 @@
                             @click="genRainbowTable(MinPlaintextLen, MaxPlaintextLen, charsetType, hashType, ColumnCount, RowCount, filename)">
                             Confirm and generate
                           </v-btn>
+                          <!-- Only allow table download when table gets generated and the name does not change -->
                           <a :href="downloadTable" target="_blank" download>
                             <v-btn class="d-inline-block" color="primary" text outlined :disabled="!generated">
                               Download
@@ -122,8 +126,10 @@
               </v-expansion-panel-header>
               <v-expansion-panel-content>
                 <v-card-text>
+                  <!-- Search bar for v-data-table -->
                   <v-text-field v-model="search" append-icon="mdi-magnify" label="Search" single-line
                     hide-details></v-text-field>
+                  <!-- Table for displaying all existing rainbow tables -->
                   <v-data-table :headers="headers" :items="rainbowTables.items" :loading="loading" :search="search"
                     :footer-props="{ itemsPerPageOptions: [10, 25, 50], itemsPerPageText: 'Rainbow tables per page' }">
                     <template v-slot:item.name="{ item }">
@@ -180,7 +186,7 @@
                           </v-list-item-content>
                         </template>
                       </v-autocomplete>
-
+                      <!-- Entering hashes and checking them for validity, again taken from addJobView -->
                       <fc-textarea id="hashes-input" v-if="inputMethod !== null" ref="textarea" v-model="hashList"
                         :class="{ 'hasherror': hashListError }" class="textarea" max-height="500"
                         :readonly="!(inputMethod === 'multipleHashes' && !gotBinaryHash)" :can-remove-line="true"
@@ -224,6 +230,7 @@
                           <v-card-title>
                             <span>Select rainbow table<span class="required primary--text"> *</span></span>
                           </v-card-title>
+                          <!-- Using selector, defined in rainbowSelector.vue -->
                           <rainbow-selector v-model="rainbows" select-all />
                         </div>
 
@@ -246,6 +253,7 @@
                           </v-card-title>
                           <div :key="hashObj.id" v-for="hashObj in validatedHashes">
                             <v-card-text>
+                              <!-- Display password under the hash -->
                               <span>{{ hashObj.hash }}
                                 <div v-for="(value, key) in getPasswords.items" :key="key" v-if="key === hashObj.hash"> password: <b>{{
                                   value }}</b></div>
@@ -306,10 +314,12 @@ export default {
       helpDismissedMessage: false,
       supported: ["MD5", "SHA1", "SHA2-224", "SHA2-256", "SHA2-512", "SHA2-384"],
       hashTypes: [],
+      // All character sets
       charsetTypes: [{ name: 'LOWERCASE', characters: 'abcdefghijklmnopqrstuvwxyz' }, { name: 'UPPERCASE', characters: 'abcdefghijklmnopqrstuvwxyz'.toUpperCase() },
       { name: 'LETTERS', characters: 'abcdefghijklmnopqrstuvwxyz' + 'abcdefghijklmnopqrstuvwxyz'.toUpperCase() },
       { name: 'ALPHANUMERIC', characters: 'abcdefghijklmnopqrstuvwxyz' + 'abcdefghijklmnopqrstuvwxyz'.toUpperCase() + '0123456789' },
       { name: 'ALL ', characters: '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\]^_`{|}~' }],
+      //headers for v-data-table
       headers: [
         { text: 'Name', align: 'start', value: 'name' },
         { text: 'Charset range', value: 'range', align: 'end' },
@@ -398,6 +408,7 @@ export default {
     this.loadAllRainbowTables()
   },
   watch: {
+    // to disable table download upon filename change
     filename(newValue) {
       this.generated = false;
     }
@@ -433,6 +444,7 @@ export default {
     focusTextarea: function () {
       this.$refs.textarea.focus()
     },
+    //remove unsupported hashes from the list received from hashcat/hashTypes
     removeUnsupportedHashTypes: function () {
       for (var i = 0; i < this.hashTypes.length; i++) {
         if (!(this.supported.includes(this.hashTypes[i].name))) {
@@ -475,9 +487,10 @@ export default {
         this.removeUnsupportedHashTypes()
       })
     },
-
+    // Table generation time estimate
     getEstimate: function (chain_len, chain_num, algorithm, charset, max_len) {
-      if (this.MinPlaintextLen > this.MaxPlaintextLen) {
+      //check the inputs
+      if (this.MinPlaintextLen > this.MaxPlaintextLen) { 
         this.hash_input = false
         return
       }
@@ -498,9 +511,11 @@ export default {
         "max_len": max_len
       }).then((response) => {
         this.estimate = response.data['time']
+        //format the estimate
         this.message = 'Estimated time to complete: ' + Math.floor(this.estimate / 60) + ' minutes and ' + (this.estimate % 60) + ' seconds'
       })
     },
+    // Load all tables from the database
     loadAllRainbowTables: function () {
       this.loading = true
       this.axios.get(this.$serverAddr + '/rainbowTables/loadall').then((response) => {
@@ -512,6 +527,7 @@ export default {
         this.loading = false
       })
     },
+    // Generate the table, check the status of table generation every 10 seconds until it is done
     genRainbowTable: async function (length_min, length_max, restrictions, algorithm, columns, rows, filename) {
       this.generated = false
       this.loading = true
@@ -533,12 +549,16 @@ export default {
                 this.generated = response.data['status']
                 this.loadAllRainbowTables()
               }
+              else {
+                this.loading = true
+              }
             })
             .catch(error => {
               console.log(error)
             })
         }, 10000)
       }).catch((error) => {
+        // Remove loading bar
         if (error.response.data.message === "Table name already exists" || error.response.data.message.includes("Table size could exceed 2GB")) {
           this.generated = true
           this.loading = false
@@ -548,6 +568,7 @@ export default {
         //this.loading = false
       })
     },
+    // Crack the hashes, check the status of cracking every 5 seconds until it is done
     CrackEnteredHashes: async function (hashList, rainbows) {
       this.loading = true
       for (var i = 0; i < rainbows.length; i++) {
@@ -562,12 +583,16 @@ export default {
             .then(response => {
               if (response.data.status === true) {
                 clearInterval(interval)
+                // Retrieve the cracked passwords
                 this.axios.get(this.$serverAddr + '/rainbowTables/items')
                   .then(response => {
                     this.passwords = response.data
                   })
                 this.loading = false
                 this.loadAllRainbowTables()
+              }
+              else {
+                this.loading = true
               }
             })
             .catch(error => {

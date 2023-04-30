@@ -124,14 +124,16 @@ export default {
     },
     mounted: function () {
         this.loadData()
-        window.addEventListener('scroll', this.handleScroll);
+        window.addEventListener('scroll', this.handleScroll); // Show more text when scrolling
     },
     methods: {
+        // Get table data from server
         loadData: function ($state) {
             this.axios.get(this.$serverAddr + '/rainbowTables/' + this.$route.params.id).then((response) => {
                 this.data = response.data
             });
         },
+        // Show 2000 characters at first, then show more when scrolling
         handleScroll() {
             const scrollPosition = window.innerHeight + window.scrollY;
             const pageHeight = document.documentElement.scrollHeight;
@@ -148,6 +150,7 @@ export default {
         }
     },
     computed: {
+        // Format character set to only show 30 characters per line
         formattedText() {
             return this.data.restrictions
                 .match(/.{1,30}/g)
