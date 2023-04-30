@@ -5,6 +5,9 @@ import pathlib
 from settings import RT_DIR
 import os
 
+# The following code is apapted from the "rainbow.py" file in the
+# https://github.com/clu8/RainbowTable/blob/master/rainbow.py repository
+# created by Charles Lu and Jialin Ding under the MIT License
 CSV_FIELDNAMES = ['start_point', 'endpoint_hash']
 
 def clear():

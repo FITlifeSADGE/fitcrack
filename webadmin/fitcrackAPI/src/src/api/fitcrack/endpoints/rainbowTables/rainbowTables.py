@@ -206,6 +206,8 @@ class Estimate(Resource):
 
 
 # Word generator functions
+# The following reduction functions were inspired by Charles Lu and Jialin Ding's implementation under the MIT license
+# the original source code can be found here: https://github.com/clu8/RainbowTable/blob/master/crack.py
 def gen_lower(n):
     def result():
         password = ""
@@ -256,6 +258,8 @@ def gen_all(n):
 
 
 # Reduction functions
+# The following reduction functions were inspired by Charles Lu and Jialin Ding's implementation under the MIT license
+# the original source code can be found here: https://github.com/clu8/RainbowTable/blob/master/crack.py
 def reduce_lower(lower, upper, hashing_alg):
     def result(hash, col):
         plaintextKey = (int(hash[:9], 16) ^ col) % (26 ** lower) # Conver hash to number
@@ -282,9 +286,9 @@ def reduce_upper(lower, upper, hashing_alg):
 
 def reduce_letters(lower, upper, hashing_alg):
     def result(hash, col):
-        #plaintextKey = (int(hash[:9], 16) ^ col) % (52 ** lower)
-        hash_obj = hashing_alg(hash.encode())
-        plaintextKey = ((int.from_bytes(hash_obj.digest(), byteorder='big'))^col) % (52 ** (lower))
+        plaintextKey = (int(hash[:9], 16) ^ col) % (52 ** lower)
+        #hash_obj = hashing_alg(hash.encode())
+        #plaintextKey = ((int.from_bytes(hash_obj.digest(), byteorder='big'))^col) % (52 ** (lower))
         plaintext = ""
         diff = upper - lower
         rang = plaintextKey % (diff + 1) + lower
