@@ -141,6 +141,14 @@ def estimate_size(hash_alg, min_plaintext_len, rows):
     
     row_size = row_size * rows
     return row_size
+
+def remove_ongoing_cracking_process(hashlist):
+    with open(os.path.join(RT_DIR, 'ongoing.txt'), 'r') as file:
+        lines = file.readlines()
+    with open(os.path.join(RT_DIR, 'ongoing.txt'), 'w') as file:
+        for line in lines:
+            if line.strip('\n') not in hashlist:
+                file.write(line)
     
 # Estimate time to generate a table
 def estimate_gen_time(chain_len, chain_num, algorithm, charset, max_len):
@@ -528,7 +536,22 @@ items = []
 @ns.route('/status')
 class Status(Resource):
     def get(self):
-        return {'message': 'Task finished', 'status': status}, 200
+        req = request.args.get('hashes')
+        hashline = "".join(req.split("\n"))
+        with open(os.path.join(RT_DIR, 'ongoing.txt'), 'r') as file:
+            for line in file:
+                if hashline in line:
+                    return {'message': 'Task finished', 'status': False}, 200
+        return {'message': 'Task finished', 'status': True}, 200
+    def post(self):
+        req = request.get_json()
+        filename = req['filename']
+        if filename[-4:] != '.csv':
+            filename += '.csv'
+        if os.stat(os.path.join(RT_DIR, filename)).st_size == 0:
+            return {'message': 'Task finished', 'status': False}, 200
+        else:
+            return {'message': 'Task finished', 'status': True}, 200
 
 
 def gen(length_min, length_max, restrictions, algorithm, columns, rows, filename):
@@ -566,22 +589,31 @@ class Generate(Resource):
     @api.marshal_with(simpleResponse)
     @api.expect(rainbowTables_generateparser)
     def post(self):
-        global status
-        if not status:
-            return {'message': 'Task already running', 'status': False}, 400
         args = rainbowTables_generateparser.parse_args(request)
         # Check if the filename already exists
         filename = args['filename']
         if filename[-4:] != ".csv": # Add .csv to filename if not present
             filename += ".csv"
+        # Check the database for the file
         if data.check_name(filename):
             return {'message': 'Table name already exists', 'status': False}, 400
+        # Check if the file is already being generated
+        if pathlib.Path(os.path.join(RT_DIR, filename)).exists():
+            if os.stat(os.path.join(RT_DIR, filename)).st_size != 0:
+                return {'message': 'Table name already exists', 'status': False}, 400
+            else:
+                return {'message': 'Table with this name is already being generated', 'status': False}, 400
+        # Limit the table name size
         if len(filename) > 24:
             return {'message': 'Table name is too long, table name length is limited to 20 characters', 'status': False}, 400
         hash_alg = get_hash_alg_from_code(args['algorithm'])
         # Check if the table size is too big
         if ((estimated_size:= estimate_size(hash_alg, args['length_min'], args['rows'])) > 2000000000):
             return {'message': 'Table size could exceed 2GB, current size estimate is ' + str(estimated_size/1000000000) + 'GB', 'status': False}, 400
+        # Create an empty file with the given name to stop other tasks from using the same name
+        with open(os.path.join(RT_DIR, filename), encoding='latin-1', mode='w+') as file:
+            file.write('')
+            file.close()
         # Start the table generation in a new thread and respond with task started
         thread = threading.Thread(target=gen, args=(args['length_min'], args['length_max'], args['restrictions'], hash_alg, args['columns'], args['rows'], args['filename']))
         thread.start()
@@ -601,6 +633,7 @@ def tab_crack(hashes, table_ids):
     global status
     status = False
     result = {}
+    orig_hashes = hashes.copy()
     for hash in hashes.copy():
         plaintext = data.search_password(hash)
         if plaintext:
@@ -628,17 +661,31 @@ def tab_crack(hashes, table_ids):
                 data.update_table(False, table_id)
     status = True
     items = result
+    remove_ongoing_cracking_process(''.join(orig_hashes))
     return {'items': result, 'message': 'Password lookup has finished', 'status': True}, 200
    
 # Cracking hashes endpoint
 @ns.route('/crack')
 class Crack(Resource):
     def post(self):
-        if not status:
-            return {'message': 'Task already running', 'status': False}, 400
         req = request.get_json()
         table_ids = req['tables']
         hashes = req['hashes'].split('\n')
+        # Create a new file to check already ongoing cracking processes
+        if not pathlib.Path(os.path.join(RT_DIR, 'ongoing.txt')).exists():
+            with open(os.path.join(RT_DIR, 'ongoing.txt'), encoding='latin-1', mode='w+') as file:
+                file.write('')
+                file.close()
+        # Check if the exact same hashes are being cracked
+        with open (os.path.join(RT_DIR, 'ongoing.txt'), encoding='latin-1', mode='r') as file:
+            for line in file:
+                if "".join(req['hashes'].split("\n")) in line:
+                    return {'message': 'Hashes are already being cracked', 'status': False}, 400
+        # Add the hashes to the ongoing cracking processes file
+        with open(os.path.join(RT_DIR, 'ongoing.txt'), encoding='latin-1', mode='a') as file:
+            file.write("".join(req['hashes'].split("\n")))
+            file.write('\n')
+            file.close()
         thread = threading.Thread(target=tab_crack, args=(hashes, table_ids))
         thread.start()
         return {'message': 'Started', 'status': status}, 200

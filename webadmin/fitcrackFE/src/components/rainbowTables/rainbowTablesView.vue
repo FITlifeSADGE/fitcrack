@@ -90,7 +90,7 @@
                         <div>
                           <v-text-field v-model="filename" outlined autofocus required label="Filename"
                             hint="Give this rainbow table a descriptive name" persistent-hint />
-                          <v-btn class="d-inline-block" color="primary" text outlined :disabled="!filename"
+                          <v-btn class="d-inline-block" color="primary" text outlined :disabled="Disable_gen"
                             @click="genRainbowTable(MinPlaintextLen, MaxPlaintextLen, charsetType, hashType, ColumnCount, RowCount, filename)">
                             Confirm and generate
                           </v-btn>
@@ -266,7 +266,7 @@
 
                         <v-row>
                           <v-spacer />
-                          <v-btn class="mr-6 mt-4" color="primary" @click="CrackEnteredHashes(hashList, rainbows)">
+                          <v-btn class="mr-6 mt-4" color="primary" @click="CrackEnteredHashes(hashList, rainbows)" :disabled="crack_loading">
                             Crack hashes
                           </v-btn>
                         </v-row>
@@ -400,6 +400,9 @@ export default {
     },
     getPasswords() {
       return this.passwords
+    },
+    Disable_gen() {
+      return !this.filename || this.gen_loading;
     }
   },
   mounted: function () {
@@ -544,7 +547,7 @@ export default {
         "filename": filename
       }).then((response) => {
         let interval = setInterval(() => {
-          this.axios.get(this.$serverAddr + '/rainbowTables/status')
+          this.axios.post(this.$serverAddr + '/rainbowTables/status', {"filename": filename})
             .then(response => {
               if (response.data.status === true) {
                 clearInterval(interval)
@@ -562,8 +565,14 @@ export default {
         }, 10000)
       }).catch((error) => {
         // Remove loading bar
-        if (error.response.data.message === "Table name already exists" || error.response.data.message.includes("Table size could exceed 2GB") || error.response.data.message.includes("Table name is too long")) {
-          this.generated = true
+        if (error.response.data.message === "Table name already exists" || 
+        error.response.data.message.includes("Table size could exceed 2GB") ||
+        error.response.data.message.includes("Table name is too long") || 
+        error.response.data.message.includes("Table with this name")) {
+          // allow the user to download the table
+          if (error.response.data.message === "Table name already exists") {
+            this.generated = true
+          }
           this.gen_loading = false
         }
         // Handle error here if needed
@@ -582,7 +591,11 @@ export default {
         "hashes": hashList
       }).then((response) => {
         let interval = setInterval(() => {
-          this.axios.get(this.$serverAddr + '/rainbowTables/status')
+          this.axios.get(this.$serverAddr + '/rainbowTables/status', {
+          params: {
+            'hashes': hashList
+          }
+          })
             .then(response => {
               if (response.data.status === true) {
                 clearInterval(interval)
@@ -603,6 +616,9 @@ export default {
             })
         }, 5000)
       }).catch((error) => {
+        if (error.response.data.message === "Hashes are already being cracked") {
+          this.crack_loading = false
+        }
         // Handle error here if needed
       }).finally(() => {
         //this.loading = false
