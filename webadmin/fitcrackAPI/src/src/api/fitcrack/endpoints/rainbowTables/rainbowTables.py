@@ -576,6 +576,8 @@ class Generate(Resource):
             filename += ".csv"
         if data.check_name(filename):
             return {'message': 'Table name already exists', 'status': False}, 400
+        if len(filename) > 24:
+            return {'message': 'Table name is too long, table name length is limited to 20 characters', 'status': False}, 400
         hash_alg = get_hash_alg_from_code(args['algorithm'])
         # Check if the table size is too big
         if ((estimated_size:= estimate_size(hash_alg, args['length_min'], args['rows'])) > 2000000000):

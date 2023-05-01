@@ -17,6 +17,7 @@
                 <template v-slot:default="{ open }">
                   <span class="d-flex align-center">
                     <span class="text-h6">{{ open ? '' : 'Show ' }}Rainbow Table generating</span>
+                    <v-progress-circular v-if="gen_loading && (!generating)" indeterminate size="20" color="primary"></v-progress-circular>
                   </span>
                 </template>
               </v-expansion-panel-header>
@@ -99,7 +100,7 @@
                               Download
                             </v-btn>
                           </a>
-                          <div v-if="loading" style="text-align: center;">
+                          <div v-if="gen_loading" style="text-align: center;">
                               Generating table in progress...
                             <v-progress-linear indeterminate color="primary" class="mt-3"></v-progress-linear>
                           </div>
@@ -166,6 +167,7 @@
                 <template v-slot:default="{ open }">
                   <span class="d-flex align-center">
                     <span class="text-h6">{{ open ? '' : '' }}Crack hashes using Rainbow Tables</span>
+                    <v-progress-circular v-if="crack_loading" indeterminate size="20" color="primary"></v-progress-circular>
                   </span>
                 </template>
               </v-expansion-panel-header>
@@ -268,7 +270,7 @@
                             Crack hashes
                           </v-btn>
                         </v-row>
-                        <div v-if="loading">
+                        <div v-if="crack_loading">
                           Cracking hashes in progress...
                           <v-progress-linear indeterminate color="primary" class="mt-3"></v-progress-linear>
                         </div>
@@ -333,7 +335,8 @@ export default {
       keyspace: null,
       hashListError: false,
       selectedTemplateName: '',
-      loading: true,
+      gen_loading: false,
+      crack_loading: false,
       saving: false,
       dialog: false,
       estimate: 0,
@@ -530,7 +533,7 @@ export default {
     // Generate the table, check the status of table generation every 10 seconds until it is done
     genRainbowTable: async function (length_min, length_max, restrictions, algorithm, columns, rows, filename) {
       this.generated = false
-      this.loading = true
+      this.gen_loading = true
       this.axios.post(this.$serverAddr + '/rainbowTables/generate', {
         "length_min": length_min,
         "length_max": length_max,
@@ -545,12 +548,12 @@ export default {
             .then(response => {
               if (response.data.status === true) {
                 clearInterval(interval)
-                this.loading = false
+                this.gen_loading = false
                 this.generated = response.data['status']
                 this.loadAllRainbowTables()
               }
               else {
-                this.loading = true
+                this.gen_loading = true
               }
             })
             .catch(error => {
@@ -559,9 +562,9 @@ export default {
         }, 10000)
       }).catch((error) => {
         // Remove loading bar
-        if (error.response.data.message === "Table name already exists" || error.response.data.message.includes("Table size could exceed 2GB")) {
+        if (error.response.data.message === "Table name already exists" || error.response.data.message.includes("Table size could exceed 2GB") || error.response.data.message.includes("Table name is too long")) {
           this.generated = true
-          this.loading = false
+          this.gen_loading = false
         }
         // Handle error here if needed
       }).finally(() => {
@@ -570,7 +573,7 @@ export default {
     },
     // Crack the hashes, check the status of cracking every 5 seconds until it is done
     CrackEnteredHashes: async function (hashList, rainbows) {
-      this.loading = true
+      this.crack_loading = true
       for (var i = 0; i < rainbows.length; i++) {
         this.IDs.push(rainbows[i].id)
       }
@@ -588,11 +591,11 @@ export default {
                   .then(response => {
                     this.passwords = response.data
                   })
-                this.loading = false
+                this.crack_loading = false
                 this.loadAllRainbowTables()
               }
               else {
-                this.loading = true
+                this.crack_loading = true
               }
             })
             .catch(error => {
