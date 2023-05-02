@@ -496,6 +496,14 @@ export default {
     // Table generation time estimate
     getEstimate: function (chain_len, chain_num, algorithm, charset, max_len) {
       //check the inputs
+      if (this.MinPlaintextLen <= 0 || this.MaxPlaintextLen <= 0 || this.RowCount <= 0 || this.ColumnCount <= 0) {
+        this.hash_input = false
+        return
+      }
+      if (this.MinPlaintextLen > 30 || this.MaxPlaintextLen > 30) {
+        this.hash_input = false
+        return
+      }
       if (this.MinPlaintextLen > this.MaxPlaintextLen) { 
         this.hash_input = false
         return
@@ -614,7 +622,7 @@ export default {
             .catch(error => {
               console.log(error)
             })
-        }, 5000)
+        }, 2000)
       }).catch((error) => {
         if (error.response.data.message === "Hashes are already being cracked") {
           this.crack_loading = false
