@@ -153,6 +153,18 @@
                         </template>
                         <span>Download</span>
                       </v-tooltip>
+                      <v-tooltip top>
+                        <template v-slot:activator="{ on }">
+                          <v-btn
+                            icon
+                            @click="deleteRT(item.name)"
+                            v-on="on"
+                          >
+                            <v-icon color="red">mdi-delete-outline</v-icon>
+                          </v-btn>
+                        </template>
+                        <span>Delete</span>
+                      </v-tooltip>
                     </template>
                   </v-data-table>
                   <file-uploader :url="this.$serverAddr + '/rainbowTables/add'" @uploadComplete="loadAllRainbowTables" />
@@ -543,6 +555,7 @@ export default {
     },
     // Generate the table, check the status of table generation every 10 seconds until it is done
     genRainbowTable: async function (length_min, length_max, restrictions, algorithm, columns, rows, filename) {
+      let runtime = 0;
       this.generated = false
       this.gen_loading = true
       this.axios.post(this.$serverAddr + '/rainbowTables/generate', {
@@ -565,6 +578,8 @@ export default {
               }
               else {
                 this.gen_loading = true
+                runtime += 10;
+                console.log(runtime)
               }
             })
             .catch(error => {
@@ -588,7 +603,7 @@ export default {
         //this.loading = false
       })
     },
-    // Crack the hashes, check the status of cracking every 5 seconds until it is done
+    // Crack the hashes, check the status of cracking every 2 seconds until it is done
     CrackEnteredHashes: async function (hashList, rainbows) {
       this.crack_loading = true
       for (var i = 0; i < rainbows.length; i++) {
@@ -630,6 +645,13 @@ export default {
         // Handle error here if needed
       }).finally(() => {
         //this.loading = false
+      })
+    },
+    deleteRT: function (name) {
+      this.$root.$confirm('Delete', `This will remove ${name} from your rules. Are you sure?`).then((confirm) => {
+        this.axios.post(this.$serverAddr + '/rainbowTables/delete', {"name": name}).then((response) => {
+          this.loadAllRainbowTables()
+        })
       })
     },
   }

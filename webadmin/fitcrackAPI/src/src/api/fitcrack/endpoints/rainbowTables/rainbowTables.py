@@ -707,3 +707,19 @@ class Items(Resource):
                 db.session.add(hash_obj)
                 db.session.commit()
         return {'items': items, 'status': status}, 200
+    
+@ns.route('/delete')
+class Delete(Resource):
+    def post(self):
+        req = request.get_json()
+        filename = req['name']
+        if not data.check_name(filename):
+            return {'message': 'Table does not exist', 'status': False}, 400
+        ID_to_delete = data.get_table_id(filename)
+        path_to_file = pathlib.Path(os.path.join(RT_DIR, filename))
+        if not path_to_file.exists():
+            data.del_from_database(ID_to_delete)
+        else:
+            path_to_file.unlink()
+            data.del_from_database(ID_to_delete)
+        return {'message': 'Table deleted', 'status': True}, 200

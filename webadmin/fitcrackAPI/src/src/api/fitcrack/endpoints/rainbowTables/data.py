@@ -200,3 +200,12 @@ def fetch_table_from_id(id: int):
     """
     cur.execute("SELECT * FROM RainbowTable WHERE id = ?", (id,))
     return cur.fetchone()
+
+def del_from_database(id: int):
+    """Used to delete a table from the database
+
+    Args:
+        id (int): ID of the table
+    """
+    cur.execute("DELETE FROM RainbowTable WHERE id = ?", (id,))
+    con.commit()
