@@ -124,13 +124,13 @@
                       <template v-slot:activator="{ on }">
                         <span v-on="on"><a href="#" class="filetype-link">RAR</a> and </span>
                       </template>
-                      <span>Hash types: 12500, 13000</span>
+                      <span>Hash types: 12500, 13000, 23700, 23800</span>
                     </v-tooltip>
                     <v-tooltip top>
                       <template v-slot:activator="{ on }">
                         <span v-on="on"><a href="#" class="filetype-link">ZIP</a>.</span>
                       </template>
-                      <span>Hash types: 13600</span>
+                      <span>Hash types: 13600, 17200, 17210, 17225, 13001, 23002, 23003</span>
                     </v-tooltip>
                   </v-alert>
                   <file-uploader ref="encryptedFileUploader" :url="this.$serverAddr + '/protectedFiles/add'"
@@ -307,10 +307,9 @@
           <template-modal :inherited-name="selectedTemplateName" @templatesUpdated="fetchTemplates" />
           <v-btn large color="primary" class="ml-2" @click="submit">
             <v-icon left>
-              {{ hosts.length > 0 ? 'mdi-check' : 'mdi-content-save' }}
+              {{ canCreateJob() ? 'mdi-check' : 'mdi-content-save' }}
             </v-icon>
-            {{ hosts.length > 0 ? 'Create' : 'Save for later' }}
-
+            {{ canCreateJob() ? 'Create' : 'Save for later' }}
           </v-btn>
         </v-row>
       </v-col>
@@ -319,139 +318,138 @@
 </template>
 
 <script>
-import sha1 from 'sha1'
-import numberFormat from '@/assets/scripts/numberFormat'
-import { attackIcon } from '@/assets/scripts/iconMaps'
+  import sha1 from 'sha1'
+  import numberFormat from '@/assets/scripts/numberFormat'
+  import { attackIcon } from '@/assets/scripts/iconMaps'
 
-import combinator from '@/components/job/attacks/combinator.vue'
-import mask from '@/components/job/attacks/mask.vue'
-import dictionary from '@/components/job/attacks/dictionary.vue'
-import hybridMaskWordlist from '@/components/job/attacks/hybridMaskWordlist.vue'
-import hybridWordlistMask from '@/components/job/attacks/hybridWordlistMask.vue'
-import pcfgAttack from '@/components/job/attacks/pcfg.vue'
-import princeAttack from '@/components/job/attacks/prince.vue'
-import FileUploader from "@/components/fileUploader/fileUploader.vue";
-import fcTextarea from '@/components/textarea/fc_textarea.vue'
-import hostSelector from '@/components/selector/hostSelector.vue'
-import templateModal from '@/components/jobTemplate/templateModal.vue'
-import dtPicker from '@/components/picker/datetime.vue'
+  import combinator from '@/components/job/attacks/combinator.vue'
+  import mask from '@/components/job/attacks/mask.vue'
+  import dictionary from '@/components/job/attacks/dictionary.vue'
+  import hybridMaskWordlist from '@/components/job/attacks/hybridMaskWordlist.vue'
+  import hybridWordlistMask from '@/components/job/attacks/hybridWordlistMask.vue'
+  import pcfgAttack from '@/components/job/attacks/pcfg.vue'
+  import princeAttack from '@/components/job/attacks/prince.vue'
+  import FileUploader from "@/components/fileUploader/fileUploader.vue";
+  import fcTextarea from '@/components/textarea/fc_textarea.vue'
+  import hostSelector from '@/components/selector/hostSelector.vue'
+  import templateModal from '@/components/jobTemplate/templateModal.vue'
+  import dtPicker from '@/components/picker/datetime.vue'
 
-import { mapState, mapGetters, mapMutations } from 'vuex'
-import { mapTwoWayState } from 'spyfu-vuex-helpers'
-import { twoWayMap } from '@/store'
+  import {mapState, mapGetters, mapMutations} from 'vuex'
+  import {mapTwoWayState} from 'spyfu-vuex-helpers'
+  import {twoWayMap} from '@/store'
 
-import { attacks } from '@/store/job-form'
+  import { attacks } from '@/store/job-form'
 
-export default {
-  name: 'AddJob',
-  components: {
-    FileUploader,
-    'combinator': combinator,
-    'maskattack': mask,
-    'dictionary': dictionary,
-    'hybridMaskWordlist': hybridMaskWordlist,
-    'hybridWordlistMask': hybridWordlistMask,
-    'pcfgAttack': pcfgAttack,
-    'princeAttack': princeAttack,
-    'fc-textarea': fcTextarea,
-    'host-selector': hostSelector,
-    'template-modal': templateModal,
-    dtPicker
-  },
-  data: function () {
-    return {
-      loading: false,
-      helpDismissedMessage: false,
-      hashTypes: [],
-      showEstimatedTime: false,
-      estimatedTime: null,
-      keyspace: null,
-      gotBinaryHash: false,
-      hashListError: false,
-      selectedTemplateName: '',
-      attacks,
-      templates: [
-        {
-          name: 'Empty',
-          id: 0
-        }
-      ],
-    }
-  },
-  computed: {
-    ...mapState('jobForm', ['selectedTemplate']),
-    ...mapTwoWayState('jobForm', twoWayMap([
-      'step', 'attackSettingsTab', 'validatedHashes', 'name', 'inputMethod', 'hashList', 'hashType', 'ignoreHashes', 'startDate', 'endDate', 'template', 'comment', 'hosts', 'startNow', 'endNever', 'timeForJob'
-    ])),
-    ...mapGetters('jobForm', ['jobSettings', 'valid', 'validAttackSpecificSettings', 'keyspaceKnown']),
-    templateItems() {
-      return this.templates.map((t, i) => ({ text: t.template, value: i }))
+  export default {
+    name: 'AddJob',
+    components: {
+      FileUploader,
+      'combinator': combinator,
+      'maskattack': mask,
+      'dictionary': dictionary,
+      'hybridMaskWordlist': hybridMaskWordlist,
+      'hybridWordlistMask': hybridWordlistMask,
+      'pcfgAttack': pcfgAttack,
+      'princeAttack': princeAttack,
+      'fc-textarea': fcTextarea,
+      'host-selector': hostSelector,
+      'template-modal': templateModal,
+      dtPicker
     },
-    invalidHashes() {
-      return this.validatedHashes.filter(h => h.result !== 'OK')
+    data: function () {
+      return {
+        loading: false,
+        helpDismissedMessage: false,
+        hashTypes: [],
+        showEstimatedTime: false,
+        estimatedTime: null,
+        keyspace: null,
+        gotBinaryHash: false,
+        hashListError: false,
+        selectedTemplateName: '',
+        attacks,
+        templates: [
+          {
+            name: 'Empty',
+            id: 0
+          }
+        ]
+      }
     },
-    dev() {
-      return localStorage.getItem('testmode') == 'true'
+    computed: {
+      ...mapState('jobForm', ['selectedTemplate']),
+      ...mapTwoWayState('jobForm', twoWayMap([
+        'step', 'attackSettingsTab', 'validatedHashes', 'name', 'inputMethod', 'hashList', 'hashType', 'ignoreHashes', 'startDate', 'endDate', 'template', 'comment', 'hosts', 'startNow', 'endNever', 'timeForJob'
+      ])),
+      ...mapGetters('jobForm', ['jobSettings', 'valid', 'validAttackSpecificSettings', 'keyspaceKnown']),
+      templateItems () {
+        return this.templates.map((t, i) => ({text: t.template, value: i}))
+      },
+      invalidHashes () {
+        return this.validatedHashes.filter(h => h.result !== 'OK')
+      },
+      dev () {
+        return localStorage.getItem('testmode') == 'true'
+      },
+      helpAlreadyDismissed () {
+        return localStorage.getItem('dismissedHelp') == 'true'
+      }
     },
-    helpAlreadyDismissed() {
-      return localStorage.getItem('dismissedHelp') == 'true'
-    },
-    showAlert() {
-      return this.validatedHashes.some(hashObj => hashObj.isInCache);
-    }
-  },
-  watch: {
-    jobSettings(val) {
-      if (val.attack_settings != false && this.validAttackSpecificSettings) {
-        var boincIds = []
-        for (let i = 0; i < this.hosts.length; i++) {
-          boincIds.push(this.hosts[i].id)
-        }
-        /* -1 means no hash entered */
-        var hash_code = this.hashType == null ? -1 : this.hashType.code
-        this.axios.get(this.$serverAddr + '/job/crackingTime', {
-          params: {
+    watch: {
+      jobSettings (val) {
+        // Reset old values as they are no longer valid
+        this.estimatedTime = null
+        this.keyspace = null
+        if (val.attack_settings != false && this.validAttackSpecificSettings) {
+          var boincIds = []
+          for (let i = 0; i < this.hosts.length; i++) {
+            boincIds.push(this.hosts[i].id)
+          }
+          // -1 means no hash entered
+          var hash_code = this.hashType == null ? -1 : this.hashType.code
+          // Compute new keyspace and new estimation of cracking time
+          this.axios.post(this.$serverAddr + '/job/crackingTime', {   
             'hash_type_code': hash_code,
             'boinc_host_ids': boincIds.join(","),
-            'attack_settings': val.attack_settings
-          }
-        }).then((response) => {
-          if (response['data']) {
-            this.estimatedTime = response.data.display_time
-            this.keyspace = response.data.keyspace
-          }
-        })
-      }
-    }
-  },
-  mounted: function () {
-    this.loadSettings()
-    this.getHashTypes()
-    this.startDate = this.$moment().format('YYYY-MM-DDTHH:mm')
-    this.endDate = this.$moment().format('YYYY-MM-DDTHH:mm')
-    if (this.hashList.length > 0) this.validateHashes()
-    this.fetchTemplates()
-    if (this.name === '') {
-      this.generateJobName()
-    }
-  },
-  methods: {
-    ...mapMutations('jobForm', ['applyTemplate']),
-    numberFormat,
-    attackIcon,
-    async loadSettings() {
-      if (!this.timeForJob) {
-        const settings = await this.axios.get(this.$serverAddr + '/settings').then(r => r.data)
-        this.timeForJob = settings.default_seconds_per_workunit
+            'attack_settings': JSON.stringify(val.attack_settings)
+          }).then((response) => {
+            if (response['data']) {
+              this.estimatedTime = response.data.display_time
+              this.keyspace = response.data.keyspace
+            }
+          })
+        }
       }
     },
-    dismissHelp(toggleFunction) {
-      localStorage.setItem('dismissedHelp', true)
-      toggleFunction()
-      this.helpDismissedMessage = true
+    mounted: function () {
+      this.loadSettings()
+      this.getHashTypes()
+      this.startDate = this.$moment().format('YYYY-MM-DDTHH:mm')
+      this.endDate = this.$moment().format('YYYY-MM-DDTHH:mm')
+      if (this.hashList.length > 0) this.validateHashes()
+      this.fetchTemplates()
+      if (this.name === '') {
+        this.generateJobName()
+      }
     },
-    fetchTemplates() {
-      this.axios.get(this.$serverAddr + '/template')
+    methods: {
+      ...mapMutations('jobForm', ['applyTemplate']),
+      numberFormat,
+      attackIcon,
+      async loadSettings () {
+        if (!this.timeForJob) {
+          const settings = await this.axios.get(this.$serverAddr + '/settings').then(r => r.data)
+          this.timeForJob = settings.default_seconds_per_workunit
+        }
+      },
+      dismissHelp (toggleFunction) {
+        localStorage.setItem('dismissedHelp', true)
+        toggleFunction()
+        this.helpDismissedMessage = true
+      },
+      fetchTemplates () {
+        this.axios.get(this.$serverAddr + '/template')
         .then((response) => {
           if (response.data && response.data.items) {
             this.templates = [
@@ -461,16 +459,16 @@ export default {
           }
         })
         .catch(console.error)
-    },
-    fetchAndApplyTemplate(id) {
-      if (id == 0) {
-        this.applyTemplate()
-        this.selectedTemplateName = ''
-        this.$store.commit('jobForm/selectedTemplateMut', 0)
-        this.loadSettings()
-        return
-      }
-      this.axios.get(this.$serverAddr + `/template/${id}`)
+      },
+      fetchAndApplyTemplate (id) {
+        if (id == 0) {
+          this.applyTemplate()
+          this.selectedTemplateName = ''
+          this.$store.commit('jobForm/selectedTemplateMut', 0)
+          this.loadSettings()
+          return
+        }
+        this.axios.get(this.$serverAddr + `/template/${id}`)
         .then((response) => {
           if (response.data && response.data.template) {
             const data = JSON.parse(response.data.template)
@@ -480,267 +478,270 @@ export default {
           }
         })
         .catch(console.error)
-    },
-    hashTypeFilter({ name, code }, query) {
-      const q = query.toLowerCase()
-      return name.toLowerCase().includes(q) || code.toLowerCase().includes(q)
-    },
-    subHashtypeChanged: function (key, val) {
-      this.hashType.code = this.hashType.code.replace(key, val.code)
-      this.validateHashes(null)
-    },
-    focusTextarea: function () {
-      this.$refs.textarea.focus()
-    },
-    validateHashes: function (data = null) {
-      if (data === null) {
-        data = this.hashList
-      }
-      var hashesList = data.split('\n')
-      if (data.startsWith("BASE64:")) {
-        this.gotBinaryHash = true
-      } else {
-        this.gotBinaryHash = false
-      }
-      if (this.hashType === null || isNaN(this.hashType.code)) {
-        return
-      }
-      if (data === '') {
-        return
-      }
-
-      this.axios.post(this.$serverAddr + '/job/verifyHash', {
-        'hashtype': this.hashType.code,
-        'hashes': data
-      }).then((response) => {
-        this.hashListError = response.data.error
-        this.validatedHashes = response.data.items
-      })
-    },
-    unvalidateHashes: function (data) {
-      this.validatedHashes = []
-    },
-    getHashTypes: function () {
-      this.axios.get(this.$serverAddr + '/hashcat/hashTypes').then((response) => {
-        this.hashTypes = response.data.hashtypes
-      })
-    },
-    addHash: function (hash) {
-      var parsedHashlist = this.hashList.split('\n')
-      var lastHash = parsedHashlist[parsedHashlist.length - 1]
-      if (lastHash === '') {
-        this.hashList = this.hashList + hash
-      } else {
-        this.hashList = this.hashList + '\n' + hash
-      }
-    },
-    uploadComplete: function (data) {
-      this.$success("Successfully extracted hash form file.")
-      this.hashType = this.hashTypes.find(h => h.code == data['hash_type'])
-      this.addHash(data['hash'])
-      this.validateHashes(null)
-    },
-    isBinaryFile: function (content) {
-      for (var i = 0; i < 24; i++) {
-        var charCode = content.charCodeAt(i);
-        if (charCode === 65533 || charCode <= 8) {
-          return true
+      },
+      hashTypeFilter ({name, code}, query) {
+        const q = query.toLowerCase()
+        return name.toLowerCase().includes(q) || code.toLowerCase().includes(q)
+      },
+      subHashtypeChanged: function (key, val) {
+        this.hashType.code = this.hashType.code.replace(key, val.code)
+        this.validateHashes(null)
+      },
+      focusTextarea: function () {
+        this.$refs.textarea.focus()
+      },
+      validateHashes: function (data = null) {
+        if (data === null) {
+          data = this.hashList
         }
-      }
-      return false
-    },
-    hashFileSelected: function (file) {
-      var reader = new FileReader()
-      reader.onloadend = function (evt) {
-        if (evt.target.readyState == FileReader.DONE) {
+        var hashesList = data.split('\n')
+        if (data.startsWith("BASE64:")) {
+          this.gotBinaryHash = true
+        } else {
+          this.gotBinaryHash = false
+        }
+        if (this.hashType === null || isNaN(this.hashType.code)) {
+          return
+        }
+        if (data === '') {
+          return
+        }
 
-          if (this.isBinaryFile(evt.target.result)) {
-            // we got binary hash
-            var binReader = new FileReader()
-            binReader.onloadend = function (evt) {
-              if (evt.target.readyState == FileReader.DONE) {
-                this.hashList = 'BASE64:' + evt.target.result.substr(evt.target.result.indexOf(',') + 1)
-                this.validateHashes(null)
-                this.gotBinaryHash = true
-              }
-            }.bind(this)
-            binReader.readAsDataURL(file)
-
-          } else {
-            // we got hashlists
-            var parsedHashlist = this.hashList.split('\n')
-            var lastHash = parsedHashlist[parsedHashlist.length - 1]
-            if (lastHash === '') {
-              this.hashList += evt.target.result
-            } else {
-              this.hashList += '\n' + evt.target.result
-            }
-            this.validateHashes(null)
+        this.axios.post(this.$serverAddr + '/job/verifyHash', {
+          'hashtype': this.hashType.code,
+          'hashes': data
+        }).then((response) => {
+          this.hashListError = response.data.error
+          this.validatedHashes = response.data.items
+        })
+      },
+      unvalidateHashes: function (data) {
+        this.validatedHashes = []
+      },
+      getHashTypes: function () {
+        this.axios.get(this.$serverAddr + '/hashcat/hashTypes').then((response) => {
+          this.hashTypes = response.data.hashtypes
+        })
+      },
+      addHash: function (hash) {
+        var parsedHashlist = this.hashList.split('\n')
+        var lastHash = parsedHashlist[parsedHashlist.length-1]
+        if (lastHash === '') {
+          this.hashList = this.hashList + hash
+        } else {
+          this.hashList = this.hashList + '\n' + hash
+        }
+      },
+      uploadComplete: function (data) {
+        this.$success("Successfully extracted hash form file.")
+        this.hashType = this.hashTypes.find(h => h.code == data['hash_type'])
+        this.addHash(data['hash'])
+        this.validateHashes(null)
+      },
+      isBinaryFile: function(content) {
+        for (var i = 0; i < 24; i++) {
+          var charCode = content.charCodeAt(i);
+          if (charCode === 65533 || charCode <= 8) {
+            return true
           }
         }
-      }.bind(this)
-      reader.readAsText(file, 'utf-8')
-    },
-    clearInput() {
-      this.hashType = null
-      this.hashList = ''
-      this.unvalidateHashes()
-    },
-    submit() {
-      // TODO: maybe delete this condition
-      if (this.name === '') {
-        this.$error('Job name can not be empty.')
-        return
-      }
+        return false
+      },
+      hashFileSelected: function (file) {
+        var reader = new FileReader()
+        reader.onloadend = function(evt) {
+          if (evt.target.readyState == FileReader.DONE) {
 
-      if (this.inputMethod === 'encryptedFile' && !this.$refs.encryptedFileUploader.fileUploaded) {
-        this.$error('No file uploaded.')
-        this.step = 1
-        return
-      }
+            if (this.isBinaryFile(evt.target.result)) {
+              // we got binary hash
+              var binReader = new FileReader()
+              binReader.onloadend = function(evt) {
+                if (evt.target.readyState == FileReader.DONE) {
+                  this.hashList = 'BASE64:' + evt.target.result.substr(evt.target.result.indexOf(',') + 1)
+                  this.validateHashes(null)
+                  this.gotBinaryHash = true
+                }
+              }.bind(this)
+              binReader.readAsDataURL(file)
 
-      if (this.hashType === null) {
-        this.$error('No hash type selected.')
-        this.step = 1
-        return
-      }
+            } else {
+              // we got hashlists
+              var parsedHashlist = this.hashList.split('\n')
+              var lastHash = parsedHashlist[parsedHashlist.length-1]
+              if (lastHash === '') {
+                this.hashList += evt.target.result
+              } else {
+                this.hashList += '\n' + evt.target.result
+              }
+              this.validateHashes(null)
+            }
+          }
+        }.bind(this)
+        reader.readAsText(file, 'utf-8')
+      },
+      clearInput () {
+        this.hashType = null
+        this.hashList = ''
+        this.unvalidateHashes()
+      },
+      submit () {
+        // TODO: maybe delete this condition
+        if (this.name === '') {
+          this.$error('Job name can not be empty.')
+          return
+        }
 
-      if (this.invalidHashes.length > 0 && !this.ignoreHashes) {
-        this.$error('Some hashes are invalid.')
-        this.step = 1
-        return
-      }
+        if (this.inputMethod === 'encryptedFile' && !this.$refs.encryptedFileUploader.fileUploaded ) {
+          this.$error('No file uploaded.')
+          this.step = 1
+          return
+        }
 
-      if (this.validatedHashes.length == 0) {
-        this.$error('List of validated hashes is empty.')
-        this.step = 1
-        return
-      }
+        if (this.hashType === null) {
+          this.$error('No hash type selected.')
+          this.step = 1
+          return
+        }
 
-      if (!this.attackSettingsTab) {
-        this.$error('No attack selected.')
-        this.step = 2
-        return
-      }
+        if (this.invalidHashes.length > 0 && !this.ignoreHashes) {
+          this.$error('Some hashes are invalid.')
+          this.step = 1
+          return
+        }
 
-      if (this.jobSettings.attack_settings === false) {
-        this.$error('Error in attack settings.')
-        this.step = 2
-        return
-      }
+        if (this.validatedHashes.length == 0) {
+          this.$error('List of validated hashes is empty.')
+          this.step = 1
+          return
+        }
 
-      if (this.keyspace > 1.8446744e+19 /* 2^64 */) {
-        this.$error('Job keyspace is higher than maximal allowed value 2^64.')
-        this.step = 2
-        return
-      }
+        if (!this.attackSettingsTab) {
+          this.$error('No attack selected.')
+          this.step = 2
+          return
+        }
 
-      if (this.timeForJob < 10) {
-        this.$error('Time per workunit must be higher or equal to 10 seconds.')
-        this.step = 4
-        return
-      }
+        if (this.jobSettings.attack_settings === false) {
+          this.$error('Error in attack settings.')
+          this.step = 2
+          return
+        }
 
-      // Check if all job settings are valid
-      if (!this.valid) {
-        // If all checks above passed and this one did not, it means that attack specific settings are incorrect.
-        this.$error('Error in attack settings.')
-        this.step = 2
-        return
-      }
+        if (this.keyspace > 1.8446744e+19 /* 2^64 */) {
+          this.$error('Job keyspace is higher than maximal allowed value 2^64.')
+          this.step = 2
+          return
+        }
 
-      this.loading = true
-      console.log(this.jobSettings.endNever)
-      const finalStartTime = this.startNow ?
-        this.jobSettings['time_start'] :
-        this.$moment(this.jobSettings['time_start']).utc().toISOString(true).slice(0, 16)
-      const finalEndTime = this.endNever ?
-        this.jobSettings['time_end'] :
-        this.$moment(this.jobSettings['time_end']).utc().toISOString(true).slice(0, 16)
-      const finalSettings = {
-        ...this.jobSettings,
-        'time_start': finalStartTime,
-        'time_end': finalEndTime
-      }
-      this.axios.post(this.$serverAddr + '/job', finalSettings).then((response) => {
-        this.$router.push({ name: 'jobDetail', params: { id: response.data.job_id } })
-        this.applyTemplate() // Clear all
-      }).catch((error) => {
-        this.loading = false
-      })
-    },
-    getRandomHash() {
-      const randomPass = Math.random().toString(36).substring(2, 6)
-      this.hashList += `${sha1(randomPass)}\n`
-      this.hashType = { code: '100', name: 'SHA1' },
+        if (this.timeForJob < 10) {
+          this.$error('Time per workunit must be higher or equal to 10 seconds.')
+          this.step = 4
+          return
+        }
+
+        // Check if all job settings are valid
+        if (!this.valid) {
+          // If all checks above passed and this one did not, it means that attack specific settings are incorrect.
+          this.$error('Error in attack settings.')
+          this.step = 2
+          return
+        }
+
+        this.loading = true
+        console.log(this.jobSettings.endNever)
+        const finalStartTime = this.startNow ? 
+          this.jobSettings['time_start'] : 
+          this.$moment(this.jobSettings['time_start']).utc().toISOString(true).slice(0, 16)
+        const finalEndTime = this.endNever ? 
+          this.jobSettings['time_end'] : 
+          this.$moment(this.jobSettings['time_end']).utc().toISOString(true).slice(0, 16)
+        const finalSettings = {
+          ...this.jobSettings,
+          'time_start': finalStartTime,
+          'time_end': finalEndTime
+        }
+        this.axios.post(this.$serverAddr + '/job', finalSettings).then((response) => {
+          this.$router.push({name: 'jobDetail', params: {id: response.data.job_id}})
+          this.applyTemplate() // Clear all
+        }).catch((error) => {
+          this.loading = false
+        })
+      },
+      getRandomHash () {
+        const randomPass = Math.random().toString(36).substring(2,6)
+        this.hashList += `${sha1(randomPass)}\n`
+        this.hashType = { code: '100', name: 'SHA1' },
         this.comment += `(${randomPass}) `
-      this.validateHashes()
-    },
-    generateJobName() {
-      this.name = this.$store.state.project + ' Job – ' + this.$moment().format('DD.MM.YYYY HH:mm')
-    },
+        this.validateHashes()
+      },
+      generateJobName () {
+        this.name = this.$store.state.project + ' Job – ' + this.$moment().format('DD.MM.YYYY HH:mm')
+      },
+      canCreateJob() {
+        return this.hosts.some((host) => host.last_active.online);
+      }
+    }
   }
-}
 </script>
 
 <style scoped>
-.containerAddJob {
-  padding: 2em;
-  padding-top: 54px;
-  position: relative;
-  max-width: 1300px;
-}
+  .containerAddJob {
+    padding: 2em;
+    padding-top: 54px;
+    position: relative;
+    max-width: 1300px;
+  }
 
-.addJobContent {
-  width: 100%;
-}
+  .addJobContent {
+    width: 100%;
+  }
 
-.max500 {
-  max-width: 500px;
-  width: 100%;
-}
+  .max500 {
+    max-width: 500px;
+    width: 100%;
+  }
 
-.max800 {
-  max-width: 800px;
-  width: 100%;
-}
+  .max800 {
+    max-width: 800px;
+    width: 100%;
+  }
 
-.max1000 {
-  max-width: 1000px;
-}
+  .max1000 {
+    max-width: 1000px;
+  }
 
-.infobar {
-  position: fixed;
-  z-index: 5;
-  bottom: 1.2em;
-  right: 1.2em;
-  padding: 0.5em 1.5em;
-  border-radius: 2em;
-}
+  .infobar {
+    position: fixed;
+    z-index: 5;
+    bottom: 1.2em;
+    right: 1.2em;
+    padding: 0.5em 1.5em;
+    border-radius: 2em;
+  }
 
-.filetype-link {
-  color: inherit
-}
+  .filetype-link {
+    color: inherit
+  }
 
-.hashCeckContainer {
-  display: block;
-  max-width: 35px;
-  overflow: hidden;
-}
+  .hashCeckContainer {
+    display: block;
+    max-width: 35px;
+    overflow: hidden;
+  }
 
-.mode-btn {
-  height: initial !important;
-  margin: 1em;
-}
+  .mode-btn {
+    height: initial !important;
+    margin: 1em;
+  }
 
-.scroller {
-  max-height: 400px;
-  overflow-y: auto;
-}
+  .scroller {
+    max-height: 400px;
+    overflow-y: auto;
+  }
 </style>
 
 <style>
-.hasherror .scrollCont {
-  border-color: #e01 !important;
-}
+  .hasherror .scrollCont {
+    border-color: #e01 !important;
+  }
 </style>
